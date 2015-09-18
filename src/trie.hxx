@@ -6,7 +6,6 @@
 
 #include <memory>
 #include <time.h>
-#include "exceptions.hxx"
 
 namespace trie {
   class TrieData {
@@ -37,8 +36,8 @@ namespace trie {
       void set_data(std::shared_ptr<TrieData> new_data);
       std::shared_ptr<Trie> get_child(unsigned char index);
       bool has_child_data(unsigned char index);
-      static void insert(std::shared_ptr<Trie> trie, unsigned char *prefix, size_t prefix_length, std::shared_ptr<TrieData> new_data);
-      static std::shared_ptr<TrieData> search(std::shared_ptr<Trie> trie, unsigned char *prefix, size_t prefix_length);
+      static void insert(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length, std::shared_ptr<TrieData> new_data);
+      static std::shared_ptr<TrieData> search(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length);
   };
 }
 #endif

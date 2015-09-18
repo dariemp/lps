@@ -1,5 +1,7 @@
 #include "trie.hxx"
+#include "exceptions.hxx"
 #include <algorithm>
+
 using namespace trie;
 
 TrieData::TrieData() :rate(-1), effective_date(-1), end_date(-1) {}
@@ -57,7 +59,7 @@ bool Trie::has_child_data(unsigned char index) {
 /**
     Inserts rate data in the prefix tree at the correct prefix location
 */
-void Trie::insert(std::shared_ptr<Trie> trie, unsigned char *prefix, size_t prefix_length, std::shared_ptr<TrieData> new_data) {
+void Trie::insert(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length, std::shared_ptr<TrieData> new_data) {
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
   while (prefix_length > 0) {
@@ -82,7 +84,7 @@ void Trie::insert(std::shared_ptr<Trie> trie, unsigned char *prefix, size_t pref
 /**
     Longest prefix search implementation modified to priorize more recent rate events
 */
-std::shared_ptr<TrieData> Trie::search(std::shared_ptr<Trie> trie, unsigned char *prefix, size_t prefix_length) {
+std::shared_ptr<TrieData> Trie::search(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length) {
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
   std::shared_ptr<TrieData> best_time_data = nullptr;
