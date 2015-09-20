@@ -30,24 +30,26 @@ void TrieData::set_end_date(time_t end_date) {
   this->end_date = end_date;
 }
 
-Trie::Trie(): data(std::make_shared<TrieData>()) {
-  fill_n(children, 10, nullptr);
+Trie::Trie(): data(std::unique_ptr<TrieData>(new TrieData())) {
+  for (int i=0; i< 10; ++i)
+    children[i] = nullptr;
 }
 
-std::shared_ptr<TrieData> Trie::get_data() {
-  return data;
+p_trie_data_t Trie::get_data() {
+  return data.get();
 }
 
-void Trie::set_data(std::shared_ptr<TrieData> new_data) {
-  this->data = new_data;
+void Trie::set_data(p_trie_data_t new_data) {
+  this->data.reset(new_data);
 }
 
-std::shared_ptr<Trie> Trie::get_child(unsigned char index) {
+p_trie_t Trie::get_child(unsigned char index) {
   if (index < 0 || index > 9)
     throw TrieInvalidChildIndexException();
   if (!children[index])
-    fill_n(children, 10, std::make_shared<Trie>()); // Make the prefix tree grow, someone needs more children
-  return children[index];
+    for (int i=0; i< 10; ++i)
+      children[i] = uptr_trie_t(new Trie());  // Make the prefix tree grow, someone needs more children
+  return children[index].get();
 }
 
 bool Trie::has_child_data(unsigned char index) {
@@ -59,7 +61,8 @@ bool Trie::has_child_data(unsigned char index) {
 /**
     Inserts rate data in the prefix tree at the correct prefix location
 */
-void Trie::insert(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length, std::shared_ptr<TrieData> new_data) {
+void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, p_trie_data_t new_data) {
+  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // Order! order! one thread at a time, please!
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
   while (prefix_length > 0) {
@@ -68,7 +71,7 @@ void Trie::insert(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_
     prefix++;
     prefix_length--;
   }
-  std::shared_ptr<TrieData> trie_data = trie->get_data();
+  p_trie_data_t trie_data = trie->get_data();
   double old_rate = trie_data->get_rate();
   if (old_rate == new_data->get_rate()) {
     if (trie_data->get_effective_date() != new_data->get_effective_date() ||
@@ -84,17 +87,17 @@ void Trie::insert(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_
 /**
     Longest prefix search implementation modified to priorize more recent rate events
 */
-std::shared_ptr<TrieData> Trie::search(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length) {
+p_trie_data_t Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
-  std::shared_ptr<TrieData> best_time_data = nullptr;
+  p_trie_data_t best_time_data = nullptr;
   while (prefix_length > 0) {
-    std::shared_ptr<TrieData> data = trie->get_data();
+    p_trie_data_t data = trie->get_data();
     if (data && data->get_end_date() != -1 &&   // Only save this date if the rate event has finished
         (!best_time_data || data->get_effective_date() > best_time_data->get_effective_date()))
       best_time_data = data;                    // Save the nearest date to now, since time dimension is important
     unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
-    if (trie->has_child_data(child_index)) {   // If we have a child node with data, move to it so we can search the longest prefix
+    if (trie->has_child_data(child_index)) {    // If we have a child node with data, move to it so we can search the longest prefix
       prefix++;
       prefix_length--;
       trie = trie->get_child(child_index);

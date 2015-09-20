@@ -7,10 +7,11 @@
 
 using namespace ctrl;
 
-Controller::Controller(std::shared_ptr<ConnectionInfo> conn_info,
+Controller::Controller(p_conn_info_t conn_info,
                        unsigned int telnet_listen_port,
                        unsigned int http_listen_port)
-  : conn_info(conn_info), telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {}
+  : conn_info(uptr_conn_info_t(conn_info)), tables_tries(uptr_table_tries_map_t(new table_tries_map_t())),
+    telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {}
 
 void Controller::workflow() {
   std::cout << "Defining pathways..." << std::endl;
@@ -27,41 +28,36 @@ void Controller::workflow() {
 
 void Controller::connect_to_database() {
   std::cout << "Connecting to database... ";
-  database = std::make_shared<db::DB>(conn_info->host, conn_info->dbname, conn_info->user, conn_info->password, conn_info->port);
+  database = db::uptr_db_t(new db::DB(conn_info->host, conn_info->dbname, conn_info->user, conn_info->password, conn_info->port));
   std::cout << "done." << std::endl;
   set_new_rate_data();
 }
 
 void Controller::set_new_rate_data() {
-  std::shared_ptr<std::vector<std::shared_ptr<db::RateRecord>>> new_records = database->get_new_records();
-  /*parallel_for(tbb::blocked_range<size_t>(0, new_records->size()),
-    [=](const tbb::blocked_range<size_t>& r) {*/
-          for (std::vector<std::shared_ptr<db::RateRecord>>::iterator it = new_records->begin() ; it != new_records->end(); ++it)
-            insert_new_rate_data(*it);
-    //});
+  db::p_rate_records_t new_records = database->get_new_records();
+  parallel_for(tbb::blocked_range<size_t>(0, new_records->size()),
+    [=](const tbb::blocked_range<size_t>& r) {
+          for (size_t i = r.begin() ; i != r.end(); ++i) {
+            insert_new_rate_data((*new_records)[i].get());
+          }
+    });
+  std::cout << "Done parallel for" << std::endl;
+  delete new_records;
 }
 
-void Controller::insert_new_rate_data(std::shared_ptr<db::RateRecord> new_record) {
-  std::cout << "WDF WDFFFFF" << std::endl;
+void Controller::insert_new_rate_data(db::p_rate_record_t new_record) {
+  tbb::mutex::scoped_lock lock(map_insertion_mutex);
   unsigned int new_rate_table_id = new_record->get_rate_table_id();
-  std::cout << "Mmmmmm" << std::endl;
-  std::cout << "fds" << std::endl;
-  std::cout << "gfdsd" << std::endl;
-  std::unordered_map<unsigned int, std::shared_ptr<trie::Trie>>::const_iterator it = tables_tries->find(new_rate_table_id);
-  std::shared_ptr<trie::Trie> trie;
-  std::cout << "Hasta aqui bien" << std::endl;
-  std::cout << "blaaaaaaaaa" << std::endl;
-  std::cout << "blaaaaaaaaa" << std::endl;
+  table_tries_map_t::const_iterator it = tables_tries->find(new_rate_table_id);
+  trie::p_trie_t trie;
   if (it == tables_tries->end()) {
-    std::cout << "Nuevo arbol para la tabla: " << new_rate_table_id << std::endl;
-     trie = std::make_shared<trie::Trie>();
-    (*tables_tries)[new_rate_table_id] = trie;
+     trie = new trie::Trie();
+    (*tables_tries)[new_rate_table_id] = trie::uptr_trie_t(trie);
   }
   else {
-    std::cout << "Se actualizo la tabla: " << new_rate_table_id << std::endl;
-    trie = (*tables_tries)[new_rate_table_id];
+    trie = (*tables_tries)[new_rate_table_id].get();
   }
-  std::shared_ptr<trie::TrieData> new_data = std::make_shared<trie::TrieData>();
+  trie::p_trie_data_t new_data = new trie::TrieData();
   new_data->set_rate(new_record->get_rate());
   new_data->set_effective_date(new_record->get_effective_date());
   new_data->set_end_date(new_record->get_end_date());
@@ -79,7 +75,7 @@ void Controller::update_rate_data() {
 
 int main(int argc, char *argv[]) {
   try {
-    std::cout << "Starting..." << std::endl;
+    std::cout.setf( std::ios_base::unitbuf );
     int opt;
     std::string dbhost = "127.0.0.1";
     std::string dbname = "icxp";
@@ -89,9 +85,9 @@ int main(int argc, char *argv[]) {
     unsigned int telnet_listen_port = 23;
     unsigned int http_listen_port = 80;
 
-    while ((opt = getopt(argc, argv, "h:d:u:p:s:t:w:")) != -1) {
+    while ((opt = getopt(argc, argv, "c:d:u:p:s:t:w:h")) != -1) {
        switch (opt) {
-       case 'h':
+       case 'c':
           dbhost = std::string(optarg);
           break;
        case 'd':
@@ -113,12 +109,12 @@ int main(int argc, char *argv[]) {
           http_listen_port = atoi(optarg);
           break;
        default: /* '?' */
-           fprintf(stderr, "Usage: %s [-h dbhost] [-d dbname] [-u dbuser] [-p dbpassword] [-s dbport] [-t telnet_listen_port] [-w http_listen_port]", argv[0]);
+           fprintf(stderr, "Usage: %s [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword] [-s dbport] [-t telnet_listen_port] [-w http_listen_port]\n\n", argv[0]);
            exit(EXIT_FAILURE);
        }
     }
-
-    std::shared_ptr<ConnectionInfo> conn_info = std::make_shared<ConnectionInfo>();
+    std::cout << "Starting..." << std::endl;
+    p_conn_info_t conn_info =  new ConnectionInfo();
     conn_info->host = dbhost;
     conn_info->dbname = dbname;
     conn_info->user = dbuser;

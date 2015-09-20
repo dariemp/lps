@@ -4,10 +4,19 @@
 #ifndef TRIE_H
 #define TRIE_H
 
+#include <tbb/tbb.h>
 #include <memory>
 #include <time.h>
 
 namespace trie {
+
+  class TrieData;
+  class Trie;
+  typedef std::unique_ptr<TrieData> uptr_trie_data_t;
+  typedef TrieData* p_trie_data_t;
+  typedef std::unique_ptr<Trie> uptr_trie_t;
+  typedef Trie* p_trie_t;
+
   class TrieData {
     private:
       double rate;
@@ -23,21 +32,25 @@ namespace trie {
       void set_end_date(time_t end_date);
   };
 
-/**
-    Prefix tree (trie) that stores rates and timestamps
-*/
+  /**
+      Prefix tree (trie) that stores rates and timestamps
+  */
+  static tbb::mutex trie_insertion_mutex;
+
   class Trie {
     private:
-      std::shared_ptr<TrieData> data;
-      std::shared_ptr<Trie> children[10];
+      uptr_trie_data_t data;
+      uptr_trie_t children[10];
     public:
       Trie();
-      std::shared_ptr<TrieData> get_data();
-      void set_data(std::shared_ptr<TrieData> new_data);
-      std::shared_ptr<Trie> get_child(unsigned char index);
+      p_trie_data_t get_data();
+      void set_data(p_trie_data_t new_data);
+      p_trie_t get_child(unsigned char index);
       bool has_child_data(unsigned char index);
-      static void insert(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length, std::shared_ptr<TrieData> new_data);
-      static std::shared_ptr<TrieData> search(std::shared_ptr<Trie> trie, const char *prefix, size_t prefix_length);
+      static void insert(p_trie_t trie, const char *prefix, size_t prefix_length, p_trie_data_t new_data);
+      static p_trie_data_t search(p_trie_t trie, const char *prefix, size_t prefix_length);
   };
+
+
 }
 #endif
