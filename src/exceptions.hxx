@@ -29,4 +29,18 @@ class TrieCollisionException : public std::exception {
       return "Collition detected while inserting new data in the prefix tree";
     }
 };
+
+class DBNoConnectionsException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "At least one connection to the database is needed";
+    }
+};
+
+class ControllerNoInstanceException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Internal error: no controller object";
+    }
+};
 #endif

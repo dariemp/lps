@@ -1,6 +1,7 @@
 #include "trie.hxx"
 #include "exceptions.hxx"
 #include <algorithm>
+#include <iostream>
 
 using namespace trie;
 
@@ -43,9 +44,14 @@ void Trie::set_data(p_trie_data_t new_data) {
   this->data.reset(new_data);
 }
 
+static unsigned int count = 0;
+
 p_trie_t Trie::get_child(unsigned char index) {
-  if (index < 0 || index > 9)
+  if (index < 0 || index > 9) {
+    count++;
+    std::cerr << "Bad character: " << index + 48 << ", count: " << count << std::endl;
     throw TrieInvalidChildIndexException();
+  }
   if (!children[index])
     for (int i=0; i< 10; ++i)
       children[i] = uptr_trie_t(new Trie());  // Make the prefix tree grow, someone needs more children
@@ -66,7 +72,7 @@ void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, p_tri
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
   while (prefix_length > 0) {
-    unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+    unsigned char child_index = (unsigned char)prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
     trie = trie->get_child(child_index);
     prefix++;
     prefix_length--;
@@ -96,7 +102,7 @@ p_trie_data_t Trie::search(p_trie_t trie, const char *prefix, size_t prefix_leng
     if (data && data->get_end_date() != -1 &&   // Only save this date if the rate event has finished
         (!best_time_data || data->get_effective_date() > best_time_data->get_effective_date()))
       best_time_data = data;                    // Save the nearest date to now, since time dimension is important
-    unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+    unsigned char child_index = (unsigned char)prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
     if (trie->has_child_data(child_index)) {    // If we have a child node with data, move to it so we can search the longest prefix
       prefix++;
       prefix_length--;

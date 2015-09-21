@@ -1,4 +1,5 @@
 #include "controller.hxx"
+#include "exceptions.hxx"
 #include <unistd.h>
 #include <iostream>
 #include <thread>
@@ -26,23 +27,31 @@ void Controller::workflow() {
   tbb_graph.wait_for_all();
 };
 
+static uptr_controller_t controller;
+
+p_controller_t Controller::get_controller(p_conn_info_t conn_info, unsigned int telnet_listen_port, unsigned int http_listen_port) {
+  p_controller_t instance = controller.get();
+  if (!instance) {
+    instance = new Controller(conn_info, telnet_listen_port, http_listen_port);
+    controller = uptr_controller_t(instance);
+  }
+  return instance;
+}
+
+p_controller_t Controller::get_controller() {
+  p_controller_t instance = controller.get();
+  if (!instance)
+    throw ControllerNoInstanceException();
+  return instance;
+}
+
 void Controller::connect_to_database() {
-  std::cout << "Connecting to database... ";
-  database = db::uptr_db_t(new db::DB(conn_info->host, conn_info->dbname, conn_info->user, conn_info->password, conn_info->port));
-  std::cout << "done." << std::endl;
+  database = db::uptr_db_t(new db::DB(conn_info->host, conn_info->dbname, conn_info->user, conn_info->password, conn_info->port, conn_info->conn_count));
   set_new_rate_data();
 }
 
 void Controller::set_new_rate_data() {
-  db::p_rate_records_t new_records = database->get_new_records();
-  parallel_for(tbb::blocked_range<size_t>(0, new_records->size()),
-    [=](const tbb::blocked_range<size_t>& r) {
-          for (size_t i = r.begin() ; i != r.end(); ++i) {
-            insert_new_rate_data((*new_records)[i].get());
-          }
-    });
-  std::cout << "Done parallel for" << std::endl;
-  delete new_records;
+  database->get_new_records();
 }
 
 void Controller::insert_new_rate_data(db::p_rate_record_t new_record) {
@@ -61,7 +70,7 @@ void Controller::insert_new_rate_data(db::p_rate_record_t new_record) {
   new_data->set_rate(new_record->get_rate());
   new_data->set_effective_date(new_record->get_effective_date());
   new_data->set_end_date(new_record->get_end_date());
-  std::string str_prefix = std::to_string(new_record->get_prefix());
+  std::string str_prefix = new_record->get_prefix();
   size_t prefix_length = str_prefix.length();
   const char *prefix = str_prefix.c_str();
   trie::Trie::insert(trie, prefix, prefix_length, new_data);
@@ -82,10 +91,11 @@ int main(int argc, char *argv[]) {
     std::string dbuser = "class4";
     std::string dbpassword= "class4";
     unsigned int dbport = 5432;
+    unsigned int threads_number = 10;
     unsigned int telnet_listen_port = 23;
     unsigned int http_listen_port = 80;
 
-    while ((opt = getopt(argc, argv, "c:d:u:p:s:t:w:h")) != -1) {
+    while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:h")) != -1) {
        switch (opt) {
        case 'c':
           dbhost = std::string(optarg);
@@ -102,6 +112,9 @@ int main(int argc, char *argv[]) {
        case 's':
           dbport = atoi(optarg);
           break;
+       case 'n':
+          threads_number = atoi(optarg);
+          break;
        case 't':
           telnet_listen_port = atoi(optarg);
           break;
@@ -109,20 +122,26 @@ int main(int argc, char *argv[]) {
           http_listen_port = atoi(optarg);
           break;
        default: /* '?' */
-           fprintf(stderr, "Usage: %s [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword] [-s dbport] [-t telnet_listen_port] [-w http_listen_port]\n\n", argv[0]);
+           fprintf(stderr, "Usage: %s [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword] [-s dbport] [-n threads_number ] [-t telnet_listen_port] [-w http_listen_port]\n\n", argv[0]);
            exit(EXIT_FAILURE);
        }
     }
+    if (threads_number < 1) {
+      std::cerr << "At least one thread is needed to run." << std::endl;
+      exit(EXIT_FAILURE);
+    }
     std::cout << "Starting..." << std::endl;
+    tbb::task_scheduler_init init(threads_number);
     p_conn_info_t conn_info =  new ConnectionInfo();
     conn_info->host = dbhost;
     conn_info->dbname = dbname;
     conn_info->user = dbuser;
     conn_info->password = dbpassword;
     conn_info->port = dbport;
+    conn_info->conn_count = threads_number;
 
-    Controller controller(conn_info, telnet_listen_port, http_listen_port);
-    controller.workflow();
+    p_controller_t controller  = Controller::get_controller(conn_info, telnet_listen_port, http_listen_port);
+    controller->workflow();
     return 0;
   } catch (std::exception &e) {
     std::cerr << e.what() << std::endl;
