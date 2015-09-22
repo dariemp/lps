@@ -23,10 +23,17 @@ class TrieInvalidChildIndexException : public std::exception {
     }
 };
 
-class TrieCollisionException : public std::exception {
+class TrieCollisionSameRateException : public std::exception {
   virtual const char* what() const throw()
     {
-      return "Collition detected while inserting new data in the prefix tree";
+      return "Collition detected while inserting new data in the prefix tree: same prefix, same rate, different dates";
+    }
+};
+
+class TrieCollisionDifferentRateException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Collition detected while inserting new data in the prefix tree: same prefix, different rate";
     }
 };
 

@@ -8,11 +8,10 @@
 
 using namespace ctrl;
 
-Controller::Controller(p_conn_info_t conn_info,
+Controller::Controller(ConnectionInfo &conn_info,
                        unsigned int telnet_listen_port,
                        unsigned int http_listen_port)
-  : conn_info(uptr_conn_info_t(conn_info)), tables_tries(uptr_table_tries_map_t(new table_tries_map_t())),
-    telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {}
+  : conn_info(&conn_info), telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {}
 
 void Controller::workflow() {
   std::cout << "Defining pathways..." << std::endl;
@@ -29,7 +28,7 @@ void Controller::workflow() {
 
 static uptr_controller_t controller;
 
-p_controller_t Controller::get_controller(p_conn_info_t conn_info, unsigned int telnet_listen_port, unsigned int http_listen_port) {
+p_controller_t Controller::get_controller(ConnectionInfo &conn_info, unsigned int telnet_listen_port, unsigned int http_listen_port) {
   p_controller_t instance = controller.get();
   if (!instance) {
     instance = new Controller(conn_info, telnet_listen_port, http_listen_port);
@@ -54,26 +53,24 @@ void Controller::set_new_rate_data() {
   database->get_new_records();
 }
 
-void Controller::insert_new_rate_data(db::p_rate_record_t new_record) {
+void Controller::insert_new_rate_data(unsigned int rate_table_id,
+                                      std::string prefix,
+                                      double rate,
+                                      time_t effective_date,
+                                      time_t end_date) {
   tbb::mutex::scoped_lock lock(map_insertion_mutex);
-  unsigned int new_rate_table_id = new_record->get_rate_table_id();
-  table_tries_map_t::const_iterator it = tables_tries->find(new_rate_table_id);
+  table_tries_map_t::const_iterator it = tables_tries.find(rate_table_id);
   trie::p_trie_t trie;
-  if (it == tables_tries->end()) {
+  if (it == tables_tries.end()) {
      trie = new trie::Trie();
-    (*tables_tries)[new_rate_table_id] = trie::uptr_trie_t(trie);
+    tables_tries[rate_table_id] = trie::uptr_trie_t(trie);
   }
   else {
-    trie = (*tables_tries)[new_rate_table_id].get();
+    trie = tables_tries[rate_table_id].get();
   }
-  trie::p_trie_data_t new_data = new trie::TrieData();
-  new_data->set_rate(new_record->get_rate());
-  new_data->set_effective_date(new_record->get_effective_date());
-  new_data->set_end_date(new_record->get_end_date());
-  std::string str_prefix = new_record->get_prefix();
-  size_t prefix_length = str_prefix.length();
-  const char *prefix = str_prefix.c_str();
-  trie::Trie::insert(trie, prefix, prefix_length, new_data);
+  size_t prefix_length = prefix.length();
+  const char *c_prefix = prefix.c_str();
+  trie::Trie::insert(trie, c_prefix, prefix_length, rate, effective_date, end_date);
 }
 
 void Controller::update_rate_data() {
@@ -132,13 +129,14 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "Starting..." << std::endl;
     tbb::task_scheduler_init init(threads_number);
-    p_conn_info_t conn_info =  new ConnectionInfo();
-    conn_info->host = dbhost;
-    conn_info->dbname = dbname;
-    conn_info->user = dbuser;
-    conn_info->password = dbpassword;
-    conn_info->port = dbport;
-    conn_info->conn_count = threads_number;
+    //p_conn_info_t conn_info =  new ConnectionInfo();
+    ConnectionInfo conn_info;
+    conn_info.host = dbhost;
+    conn_info.dbname = dbname;
+    conn_info.user = dbuser;
+    conn_info.password = dbpassword;
+    conn_info.port = dbport;
+    conn_info.conn_count = threads_number;
 
     p_controller_t controller  = Controller::get_controller(conn_info, telnet_listen_port, http_listen_port);
     controller->workflow();

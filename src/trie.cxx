@@ -31,30 +31,30 @@ void TrieData::set_end_date(time_t end_date) {
   this->end_date = end_date;
 }
 
-Trie::Trie(): data(std::unique_ptr<TrieData>(new TrieData())) {
+/*Trie::Trie(): data(std::unique_ptr<TrieData>(new TrieData())) {
   for (int i=0; i< 10; ++i)
     children[i] = nullptr;
-}
+}*/
 
 p_trie_data_t Trie::get_data() {
-  return data.get();
+  //return data.get();
+  return &data;
 }
 
-void Trie::set_data(p_trie_data_t new_data) {
-  this->data.reset(new_data);
+void Trie::set_data(double rate, time_t effective_date, time_t end_date) {
+  //data.reset(new_data);
+  data.set_rate(rate);
+  data.set_effective_date(effective_date);
+  data.set_end_date(end_date);
 }
-
-static unsigned int count = 0;
 
 p_trie_t Trie::get_child(unsigned char index) {
-  if (index < 0 || index > 9) {
-    count++;
-    std::cerr << "Bad character: " << index + 48 << ", count: " << count << std::endl;
+  if (index < 0 || index > 9)
     throw TrieInvalidChildIndexException();
-  }
-  if (!children[index])
-    for (int i=0; i< 10; ++i)
-      children[i] = uptr_trie_t(new Trie());  // Make the prefix tree grow, someone needs more children
+  if (children.empty())
+    for (int i=0; i< 10; ++i) {
+      children.emplace_back(new Trie());  // Make the prefix tree grow, someone needs more children
+    }
   return children[index].get();
 }
 
@@ -67,10 +67,11 @@ bool Trie::has_child_data(unsigned char index) {
 /**
     Inserts rate data in the prefix tree at the correct prefix location
 */
-void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, p_trie_data_t new_data) {
-  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // Order! order! one thread at a time, please!
+void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date) {
+  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please!
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
+  //const char *original_prefix = prefix;
   while (prefix_length > 0) {
     unsigned char child_index = (unsigned char)prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
     trie = trie->get_child(child_index);
@@ -79,15 +80,32 @@ void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, p_tri
   }
   p_trie_data_t trie_data = trie->get_data();
   double old_rate = trie_data->get_rate();
-  if (old_rate == new_data->get_rate()) {
-    if (trie_data->get_effective_date() != new_data->get_effective_date() ||
-        trie_data->get_end_date() != new_data->get_end_date())
-      throw TrieCollisionException();
+  time_t old_end_date = trie_data->get_end_date();
+
+  /******* SOLUTION THAT DOES NOT RESOLVE CONFLICTING RATES ******/
+  /*try {
+    if (old_rate == new_data->get_rate()) {
+      if (trie_data->get_effective_date() != new_data->get_effective_date() ||
+          trie_data->get_end_date() != new_data->get_end_date())
+        throw TrieCollisionSameRateException();
+    }
+    else if (old_rate != -1)
+      throw TrieCollisionDifferentRateException();
+    else
+      trie->set_data(new_data);
+  } catch (std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    std::cerr << "Conflicting prefix: " << original_prefix << std::endl;
+    exit(EXIT_FAILURE);
+  }*/
+
+  /****** SOLUTION THAT SOLVES CONFLICTING RATES ******/
+  if ( old_rate == -1 ||
+      (old_end_date == -1 &&  end_date != -1) ||
+      (old_end_date != -1 &&  end_date != -1 &&
+       effective_date > trie_data->get_effective_date())) {
+    trie->set_data(rate, effective_date, end_date);
   }
-  else if (old_rate != -1)
-    throw TrieCollisionException();
-  else
-    trie->set_data(new_data);
 }
 
 /**
