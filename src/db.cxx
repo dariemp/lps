@@ -7,33 +7,41 @@
 using namespace db;
 
 
-DB::DB(std::string host, std::string dbname, std::string user, std::string password, unsigned int port, unsigned int conn_count) {
-  if (conn_count < 1)
+DB::DB(ConnectionInfo &conn_info) {
+  p_conn_info = &conn_info;
+  if (conn_info.conn_count < 1)
     throw DBNoConnectionsException();
   last_rate_id = 0;
-  std::cout << "Connecting to database with " << conn_count << " connections... ";
-  //connections = uptr_connections_t(new connections_t());
-  parallel_for(tbb::blocked_range<size_t>(0, conn_count, 1),
+  std::cout << "Connecting to database with " << conn_info.conn_count << " connections... ";
+  parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count, 1),
       [=](const tbb::blocked_range<size_t>& r) {
           for (size_t i = r.begin(); i != r.end(); ++i) {
             add_conn_mutex.lock();
-            connections.emplace_back(new pqxx::connection("host=" + host + " dbname=" + dbname + " user=" + user + " password=" + password + " port=" + std::to_string(port)));
+            connections.emplace_back(new pqxx::connection("host=" + conn_info.host + " dbname=" + conn_info.dbname + " user=" + conn_info.user + " password=" + conn_info.password + " port=" + std::to_string(conn_info.port)));
             add_conn_mutex.unlock();
           }
       });
   std::cout << "done." << std::endl;
 }
 
+unsigned int DB::get_refresh_minutes() {
+  return p_conn_info->refresh_minutes;
+}
+
 unsigned int DB::get_first_rate_id(bool from_beginning) {
   unsigned int start_rate_id = last_rate_id + 1;
-  pqxx::work transaction(*connections[0].get());
-  std::string order = from_beginning ? "" : "desc ";
-  pqxx::result result = transaction.exec("select rate_id from rate where rate_id >= " + transaction.quote(start_rate_id) + " order by rate_id " + order + "limit 1");
-  transaction.commit();
-  if (result.empty())
-    return 0;
-  else
-    return result.begin()[0].as<unsigned int>();
+  if (p_conn_info->rows_to_read_debug > 0 && !from_beginning)
+    return start_rate_id + p_conn_info->rows_to_read_debug;
+  else {
+    pqxx::work transaction(*connections[0].get());
+    std::string order = from_beginning ? "" : "desc ";
+    pqxx::result result = transaction.exec("select rate_id from rate where rate_id >= " + transaction.quote(start_rate_id) + " order by rate_id " + order + "limit 1");
+    transaction.commit();
+    if (result.empty())
+      return 0;
+    else
+      return result.begin()[0].as<unsigned int>();
+  }
 }
 
 void DB::get_new_records() {
@@ -66,14 +74,14 @@ void DB::get_new_records() {
               unsigned int range_first_rate_id =  first_rate_id + i * iter_row_count + conn_index * 100000;
               unsigned int range_last_rate_id =  first_rate_id + i * iter_row_count + (conn_index + 1) * 100000 - 1;
               pqxx::work transaction( *connections[conn_index].get() );
-              track_output_mutex.lock();
+              track_output_mutex1.lock();
               std::cout << "Reading 100000 records through connection: " << conn_index << ", from rate_id: " << range_first_rate_id << " to rate_id: " << range_last_rate_id << std::endl;
-              track_output_mutex.unlock();
+              track_output_mutex1.unlock();
               pqxx::result result = transaction.exec("select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, extract(epoch from effective_date) as effective_date, extract(epoch from end_date) as end_date from rate where rate_id >= " + transaction.quote(range_first_rate_id) + " and rate_id <= " + transaction.quote(range_last_rate_id) + " order by rate_id");
               transaction.commit();
-              track_output_mutex.lock();
+              track_output_mutex2.lock();
               std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
-              track_output_mutex.unlock();
+              track_output_mutex2.unlock();
               consolidate_results(result);
         });
   }
@@ -81,7 +89,6 @@ void DB::get_new_records() {
 }
 
 void DB::consolidate_results(pqxx::result result) {
-  tbb::mutex::scoped_lock lock(consolidation_mutex);
   for (pqxx::result::const_iterator row = result.begin(); row != result.end(); ++row) {
     double selected_rate;
     try {

@@ -12,7 +12,6 @@ namespace trie {
 
   class TrieData;
   class Trie;
-  //typedef std::unique_ptr<TrieData> uptr_trie_data_t;
   typedef TrieData* p_trie_data_t;
   typedef std::unique_ptr<Trie> uptr_trie_t;
   typedef Trie* p_trie_t;
@@ -41,15 +40,16 @@ namespace trie {
   class Trie {
     private:
       TrieData data;
-      children_tries_t children;
+      //children_tries_t children;
+      uptr_trie_t children[10];
     public:
-      //Trie();
+      Trie();
       p_trie_data_t get_data();
       void set_data(double rate, time_t effective_date, time_t end_date);
       p_trie_t get_child(unsigned char index);
-      bool has_child_data(unsigned char index);
+      bool has_child(unsigned char index);
       static void insert(p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date);
-      static p_trie_data_t search(p_trie_t trie, const char *prefix, size_t prefix_length);
+      double search(p_trie_t trie, const char *prefix, size_t prefix_length);
   };
 
 

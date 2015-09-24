@@ -1,0 +1,16 @@
+Third party libraries not distributed by default in my Linux system go here.
+
+1.- libtelnet (https://github.com/seanmiddleditch/libtelnet)
+    LICENCE: Public domain
+    USE: Telnet interface.
+
+2.- libhttpserver (https://github.com/etr/libhttpserver)
+    LICENCE: GNU LGPL (can be use in non-free/commercial software
+                       if the library is just for linking)
+    USE: REST/HTTP interface.
+
+3.- libmicrohttpd 0.9.43 (https://www.gnu.org/software/libmicrohttpd/)
+    Download source code: http://ftp.gnu.org/gnu/libmicrohttpd/
+    LICENCE: GNU LGPL (can be use in non-free/commercial software
+                      if the library is just for linking)
+    USE: Dependency of libhttpserver

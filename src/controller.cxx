@@ -1,34 +1,60 @@
 #include "controller.hxx"
 #include "exceptions.hxx"
+#include "rest.hxx"
+#include <string>
+#include <httpserver.hpp>
 #include <unistd.h>
 #include <iostream>
 #include <thread>
 #include <memory>
+#include <queue>
 #include <tbb/tbb.h>
+#include <tbb/flow_graph.h>
 
 using namespace ctrl;
+using namespace tbb::flow;
 
-Controller::Controller(ConnectionInfo &conn_info,
+Controller::Controller(db::ConnectionInfo &conn_info,
                        unsigned int telnet_listen_port,
                        unsigned int http_listen_port)
   : conn_info(&conn_info), telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {}
 
-void Controller::workflow() {
+void Controller::start_workflow() {
   std::cout << "Defining pathways..." << std::endl;
-  continue_node<continue_msg> start = continue_node<continue_msg>(tbb_graph,
-                        [=](const continue_msg &v) { connect_to_database(); });
-  continue_node<continue_msg> read_database = continue_node<continue_msg>(tbb_graph,
-                        [=]( const continue_msg &v) { update_rate_data(); });
-  make_edge(start, read_database);
-  make_edge(read_database, read_database);
+  graph tbb_graph;
+  continue_node<continue_msg> start_node (tbb_graph, [=](const continue_msg &) { create_table_tries(); });
+  continue_node<continue_msg> update_node (tbb_graph, [=]( const continue_msg &) { update_table_tries(); });
+  continue_node<continue_msg> http_node (tbb_graph, [=]( const continue_msg &) { run_http_server(); });
+  make_edge(start_node, update_node);
+  make_edge(start_node, http_node);
   std::cout << "Starting workflow..." << std::endl;
-  start.try_put(continue_msg());
+  start_node.try_put(continue_msg());
   tbb_graph.wait_for_all();
 };
 
+void Controller::create_table_tries() {
+  database = db::uptr_db_t(new db::DB(*conn_info));
+  database->get_new_records();
+}
+
+void Controller::update_table_tries() {
+  unsigned int refresh_minutes = database->get_refresh_minutes();
+  while (true) {
+    std::cout << "Next update from the database in " << refresh_minutes << (refresh_minutes == 1 ? " minute." : " minutes.") << std::endl;
+    std::this_thread::sleep_for(std::chrono::minutes(refresh_minutes));
+    database->get_new_records();
+  }
+}
+
+void Controller::run_http_server() {
+  rest::Rest rest_server;
+  rest_server.run_server(http_listen_port);
+}
+
+
 static uptr_controller_t controller;
 
-p_controller_t Controller::get_controller(ConnectionInfo &conn_info, unsigned int telnet_listen_port, unsigned int http_listen_port) {
+p_controller_t Controller::get_controller(db::ConnectionInfo &conn_info, unsigned int telnet_listen_port, unsigned int http_listen_port) {
   p_controller_t instance = controller.get();
   if (!instance) {
     instance = new Controller(conn_info, telnet_listen_port, http_listen_port);
@@ -44,15 +70,6 @@ p_controller_t Controller::get_controller() {
   return instance;
 }
 
-void Controller::connect_to_database() {
-  database = db::uptr_db_t(new db::DB(conn_info->host, conn_info->dbname, conn_info->user, conn_info->password, conn_info->port, conn_info->conn_count));
-  set_new_rate_data();
-}
-
-void Controller::set_new_rate_data() {
-  database->get_new_records();
-}
-
 void Controller::insert_new_rate_data(unsigned int rate_table_id,
                                       std::string prefix,
                                       double rate,
@@ -62,21 +79,36 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
   table_tries_map_t::const_iterator it = tables_tries.find(rate_table_id);
   trie::p_trie_t trie;
   if (it == tables_tries.end()) {
-     trie = new trie::Trie();
+    trie = new trie::Trie();
     tables_tries[rate_table_id] = trie::uptr_trie_t(trie);
+    rate_table_ids.push_back(rate_table_id);
   }
-  else {
-    trie = tables_tries[rate_table_id].get();
-  }
+  trie = tables_tries[rate_table_id].get();
   size_t prefix_length = prefix.length();
   const char *c_prefix = prefix.c_str();
   trie::Trie::insert(trie, c_prefix, prefix_length, rate, effective_date, end_date);
 }
 
-void Controller::update_rate_data() {
-  std::this_thread::sleep_for(std::chrono::seconds(10));
-  //std::this_thread::sleep_for(std::chrono::hours(1));
-  set_new_rate_data();
+void Controller::search_prefix(std::string prefix, search::SearchResult &result) {
+  unsigned long long number_prefix  = std::stoull(prefix, nullptr, 10);
+  if (number_prefix == 0 || std::to_string(number_prefix) != prefix)
+    return;
+  size_t prefix_length = prefix.length();
+  const char* c_prefix = prefix.c_str();
+  std::vector<unsigned int> keys;
+  parallel_for(tbb::blocked_range<size_t>(0, tables_tries.size(), 1),
+    [&](const tbb::blocked_range<size_t> &r)  {
+        size_t index = r.begin();
+        unsigned int rate_table_id = rate_table_ids[index];
+        //output_mutex.lock();
+        //std::cout << "Searching rate table: " << rate_table_id << std::endl;
+        trie::p_trie_t trie = tables_tries[rate_table_id].get();
+        double rate = trie->search(trie, c_prefix, prefix_length);
+        //output_mutex.unlock();
+        if (rate != -1)
+          result.insert(rate_table_id, rate);
+    }
+  );
 }
 
 int main(int argc, char *argv[]) {
@@ -88,11 +120,13 @@ int main(int argc, char *argv[]) {
     std::string dbuser = "class4";
     std::string dbpassword= "class4";
     unsigned int dbport = 5432;
-    unsigned int threads_number = 10;
+    unsigned int threads_number = 11;
     unsigned int telnet_listen_port = 23;
     unsigned int http_listen_port = 80;
+    unsigned int rows_to_read_debug = 0;
+    unsigned int refresh_minutes = 60;
 
-    while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:h")) != -1) {
+    while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:r:m:h")) != -1) {
        switch (opt) {
        case 'c':
           dbhost = std::string(optarg);
@@ -118,8 +152,16 @@ int main(int argc, char *argv[]) {
        case 'w':
           http_listen_port = atoi(optarg);
           break;
+       case 'r':
+          rows_to_read_debug = atoi(optarg);
+          break;
+       case 'm':
+          refresh_minutes = atoi(optarg);
+          break;
        default: /* '?' */
-           fprintf(stderr, "Usage: %s [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword] [-s dbport] [-n threads_number ] [-t telnet_listen_port] [-w http_listen_port]\n\n", argv[0]);
+           std::cerr << "Usage: " << argv[0] << " [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword]" << std::endl;
+           std::cerr << "          [-s dbport] [-t telnet_listen_port] [-w http_listen_port]" << std::endl;
+           std::cerr << "          [-n threads_number ] [-r rows_to_read_debug] [-m refresh_minutes]" << std::endl;
            exit(EXIT_FAILURE);
        }
     }
@@ -130,16 +172,18 @@ int main(int argc, char *argv[]) {
     std::cout << "Starting..." << std::endl;
     tbb::task_scheduler_init init(threads_number);
     //p_conn_info_t conn_info =  new ConnectionInfo();
-    ConnectionInfo conn_info;
+    db::ConnectionInfo conn_info;
     conn_info.host = dbhost;
     conn_info.dbname = dbname;
     conn_info.user = dbuser;
     conn_info.password = dbpassword;
     conn_info.port = dbport;
-    conn_info.conn_count = threads_number;
+    conn_info.conn_count = threads_number - 1;
+    conn_info.rows_to_read_debug = rows_to_read_debug;
+    conn_info.refresh_minutes = refresh_minutes;
 
     p_controller_t controller  = Controller::get_controller(conn_info, telnet_listen_port, http_listen_port);
-    controller->workflow();
+    controller->start_workflow();
     return 0;
   } catch (std::exception &e) {
     std::cerr << e.what() << std::endl;

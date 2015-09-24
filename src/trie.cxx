@@ -31,18 +31,18 @@ void TrieData::set_end_date(time_t end_date) {
   this->end_date = end_date;
 }
 
-/*Trie::Trie(): data(std::unique_ptr<TrieData>(new TrieData())) {
-  for (int i=0; i< 10; ++i)
-    children[i] = nullptr;
-}*/
+Trie::Trie() {
+  for (int i=0; i < 10; ++i) {
+    //children.push_back(nullptr);
+    children[i].reset(nullptr);
+  }
+}
 
 p_trie_data_t Trie::get_data() {
-  //return data.get();
   return &data;
 }
 
 void Trie::set_data(double rate, time_t effective_date, time_t end_date) {
-  //data.reset(new_data);
   data.set_rate(rate);
   data.set_effective_date(effective_date);
   data.set_end_date(end_date);
@@ -51,35 +51,33 @@ void Trie::set_data(double rate, time_t effective_date, time_t end_date) {
 p_trie_t Trie::get_child(unsigned char index) {
   if (index < 0 || index > 9)
     throw TrieInvalidChildIndexException();
-  if (children.empty())
-    for (int i=0; i< 10; ++i) {
-      children.emplace_back(new Trie());  // Make the prefix tree grow, someone needs more children
-    }
+  if (children[index].get() == nullptr)
+      children[index].reset(new Trie());  // Make the prefix tree grow, someone needs more children
   return children[index].get();
 }
 
-bool Trie::has_child_data(unsigned char index) {
+bool Trie::has_child(unsigned char index) {
   if (index < 0 || index > 9)
     throw TrieInvalidChildIndexException();
-  return children[index]->get_data()->get_rate() != -1;
+  return children[index].get() != nullptr;
 }
 
 /**
     Inserts rate data in the prefix tree at the correct prefix location
 */
 void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date) {
-  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please!
+  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
-  //const char *original_prefix = prefix;
   while (prefix_length > 0) {
-    unsigned char child_index = (unsigned char)prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+    unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
     trie = trie->get_child(child_index);
     prefix++;
     prefix_length--;
   }
   p_trie_data_t trie_data = trie->get_data();
   double old_rate = trie_data->get_rate();
+  time_t old_effective_date = trie_data->get_effective_date();
   time_t old_end_date = trie_data->get_end_date();
 
   /******* SOLUTION THAT DOES NOT RESOLVE CONFLICTING RATES ******/
@@ -100,37 +98,50 @@ void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, doubl
   }*/
 
   /****** SOLUTION THAT SOLVES CONFLICTING RATES ******/
-  if ( old_rate == -1 ||
-      (old_end_date == -1 &&  end_date != -1) ||
-      (old_end_date != -1 &&  end_date != -1 &&
-       effective_date > trie_data->get_effective_date())) {
+  if ( old_rate == -1 || (old_end_date == -1 &&  end_date != -1) ||
+      (old_end_date != -1 &&  end_date != -1 && effective_date > old_effective_date))
     trie->set_data(rate, effective_date, end_date);
-  }
 }
 
 /**
     Longest prefix search implementation modified to priorize more recent rate events
 */
-p_trie_data_t Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
+double Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
-  p_trie_data_t best_time_data = nullptr;
+  time_t best_time = -1;
+  double best_time_rate = -1;
+  double longest_prefix_rate = -1;
   while (prefix_length > 0) {
-    p_trie_data_t data = trie->get_data();
-    if (data && data->get_end_date() != -1 &&   // Only save this date if the rate event has finished
-        (!best_time_data || data->get_effective_date() > best_time_data->get_effective_date()))
-      best_time_data = data;                    // Save the nearest date to now, since time dimension is important
-    unsigned char child_index = (unsigned char)prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
-    if (trie->has_child_data(child_index)) {    // If we have a child node with data, move to it so we can search the longest prefix
+    unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+    //std::cout << "debug: child index to go: " << (char)(child_index + 48) << std::endl;
+    if (trie->has_child(child_index)) {                // If we have a child node, move to it so we can search the longest prefix
+      trie = trie->get_child(child_index);
+      p_trie_data_t data = trie->get_data();
+      double rate = data->get_rate();
+      time_t effective_date = data->get_effective_date();
+      if (rate != -1) {
+        longest_prefix_rate = rate;
+        if (data->get_end_date() != -1 &&   // Only save this date if the rate event has finished
+           (best_time == -1 || effective_date > best_time)) {
+           best_time = effective_date;                    // Save the nearest date to now, since time dimension is important
+           best_time_rate = rate;
+         }
+      }
       prefix++;
       prefix_length--;
-      trie = trie->get_child(child_index);
     }
     else
       prefix_length = 0;      // Trick to stop the loop if we are in a leaf, longest prefix found
   }
-  if (best_time_data)
-    return best_time_data;     // We have a rate with a shorter prefix, but a more recent effective_date and has an end_date
+  /*std::cout << "debug: current prefix: " << prefix << std::endl;
+  std::cout << "debug: current rate: " << trie->get_data()->get_rate() << std::endl;
+  std::cout << "debug: longest_prefix_rate: " << longest_prefix_rate << std::endl;*/
+
+  if (best_time_rate != -1)
+    return best_time_rate;     // We have a rate with a shorter prefix, but a more recent effective_date and has an end_date
+  else if (longest_prefix_rate != -1)
+    return longest_prefix_rate;   // We have the rate with the longest prefix
   else
-    return trie->get_data();   // We have the rate with the longest prefix
+    return -1;           // No rate data found in the current prefix tree for the given prefix;
 }

@@ -1,7 +1,0 @@
-Third party libraries go here. We use two:
-
-1.- libtelnet (https://github.com/seanmiddleditch/libtelnet)
-    LICENCE: Public domain
-
-2.- libhttpserver (https://github.com/etr/libhttpserver)
-    LICENCE: GNU LGPL (can be use in non-free software and commercial software if the library is just for linking)
