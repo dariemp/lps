@@ -34,7 +34,6 @@ namespace db {
   class DB {
     private:
       p_conn_info_t p_conn_info;
-      unsigned int last_rate_id;
       connections_t connections;
       unsigned int get_first_rate_id(bool from_beginning=true);
       void consolidate_results(pqxx::result result);

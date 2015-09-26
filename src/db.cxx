@@ -11,7 +11,6 @@ DB::DB(ConnectionInfo &conn_info) {
   p_conn_info = &conn_info;
   if (conn_info.conn_count < 1)
     throw DBNoConnectionsException();
-  last_rate_id = 0;
   std::cout << "Connecting to database with " << conn_info.conn_count << " connections... ";
   parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count, 1),
       [=](const tbb::blocked_range<size_t>& r) {
@@ -29,13 +28,12 @@ unsigned int DB::get_refresh_minutes() {
 }
 
 unsigned int DB::get_first_rate_id(bool from_beginning) {
-  unsigned int start_rate_id = last_rate_id + 1;
-  if (p_conn_info->rows_to_read_debug > 0 && !from_beginning)
-    return start_rate_id + p_conn_info->rows_to_read_debug;
+  if (!from_beginning && p_conn_info->rows_to_read_debug)
+    return p_conn_info->rows_to_read_debug;
   else {
     pqxx::work transaction(*connections[0].get());
     std::string order = from_beginning ? "" : "desc ";
-    pqxx::result result = transaction.exec("select rate_id from rate where rate_id >= " + transaction.quote(start_rate_id) + " order by rate_id " + order + "limit 1");
+    pqxx::result result = transaction.exec("select rate_id from rate order by rate_id " + order + "limit 1");
     transaction.commit();
     if (result.empty())
       return 0;
@@ -45,12 +43,9 @@ unsigned int DB::get_first_rate_id(bool from_beginning) {
 }
 
 void DB::get_new_records() {
-  if (last_rate_id == 0)
-    std::cout << "Loading rate records from the database for the first time (takes some time)... ";
-  else
-    std::cout << "Loading new rate records from the database... ";
+  std::cout << "Loading rate records from the database... ";
   unsigned int first_rate_id = get_first_rate_id();
-  last_rate_id = get_first_rate_id(false);
+  unsigned int last_rate_id = get_first_rate_id(false);
   unsigned int conn_count = connections.size();
   if (conn_count == 1) {
     pqxx::work transaction( *connections[0].get() );

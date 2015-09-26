@@ -106,12 +106,11 @@ void Trie::insert(p_trie_t trie, const char *prefix, size_t prefix_length, doubl
 /**
     Longest prefix search implementation modified to priorize more recent rate events
 */
-double Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
+p_trie_data_t Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
-  time_t best_time = -1;
-  double best_time_rate = -1;
-  double longest_prefix_rate = -1;
+  p_trie_data_t best_time_data = nullptr;
+  p_trie_data_t longest_prefix_data = nullptr;
   while (prefix_length > 0) {
     unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
     //std::cout << "debug: child index to go: " << (char)(child_index + 48) << std::endl;
@@ -121,11 +120,10 @@ double Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
       double rate = data->get_rate();
       time_t effective_date = data->get_effective_date();
       if (rate != -1) {
-        longest_prefix_rate = rate;
+        longest_prefix_data = data;
         if (data->get_end_date() != -1 &&   // Only save this date if the rate event has finished
-           (best_time == -1 || effective_date > best_time)) {
-           best_time = effective_date;                    // Save the nearest date to now, since time dimension is important
-           best_time_rate = rate;
+           (!best_time_data || effective_date > best_time_data->get_effective_date())) {
+           best_time_data = data;                    // Save the nearest date to now, since time dimension is important
          }
       }
       prefix++;
@@ -138,10 +136,10 @@ double Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length) {
   std::cout << "debug: current rate: " << trie->get_data()->get_rate() << std::endl;
   std::cout << "debug: longest_prefix_rate: " << longest_prefix_rate << std::endl;*/
 
-  if (best_time_rate != -1)
-    return best_time_rate;     // We have a rate with a shorter prefix, but a more recent effective_date and has an end_date
-  else if (longest_prefix_rate != -1)
-    return longest_prefix_rate;   // We have the rate with the longest prefix
+  if (best_time_data)
+    return best_time_data;     // We have a rate with a shorter prefix, but a more recent effective_date and has an end_date
+  else if (longest_prefix_data)
+    return longest_prefix_data;   // We have the rate with the longest prefix
   else
-    return -1;           // No rate data found in the current prefix tree for the given prefix;
+    return nullptr;           // No rate data found in the current prefix tree for the given prefix;
 }

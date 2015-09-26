@@ -17,7 +17,15 @@ using namespace tbb::flow;
 Controller::Controller(db::ConnectionInfo &conn_info,
                        unsigned int telnet_listen_port,
                        unsigned int http_listen_port)
-  : conn_info(&conn_info), telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {}
+  : conn_info(&conn_info), telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {
+      reset_new_tables();
+}
+
+void Controller::reset_new_tables() {
+  new_rate_table_ids = uptr_rate_table_ids_t(new rate_table_ids_t());
+  new_tables_tries = uptr_table_tries_map_t(new table_tries_map_t());
+  updating_tables = false;
+}
 
 void Controller::start_workflow() {
   std::cout << "Defining pathways..." << std::endl;
@@ -32,9 +40,19 @@ void Controller::start_workflow() {
   tbb_graph.wait_for_all();
 };
 
+void Controller::update_rate_tables_tries() {
+  std::lock_guard<std::mutex> threads_guard_lock(update_tables_mutex);
+  updating_tables = true;
+  rate_table_ids = std::move(new_rate_table_ids);
+  tables_tries = std::move(new_tables_tries);
+  reset_new_tables();
+  condition_variable_tables.notify_all();
+}
+
 void Controller::create_table_tries() {
   database = db::uptr_db_t(new db::DB(*conn_info));
   database->get_new_records();
+  update_rate_tables_tries();
 }
 
 void Controller::update_table_tries() {
@@ -43,6 +61,7 @@ void Controller::update_table_tries() {
     std::cout << "Next update from the database in " << refresh_minutes << (refresh_minutes == 1 ? " minute." : " minutes.") << std::endl;
     std::this_thread::sleep_for(std::chrono::minutes(refresh_minutes));
     database->get_new_records();
+    update_rate_tables_tries();
   }
 }
 
@@ -76,14 +95,14 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
                                       time_t effective_date,
                                       time_t end_date) {
   tbb::mutex::scoped_lock lock(map_insertion_mutex);
-  table_tries_map_t::const_iterator it = tables_tries.find(rate_table_id);
+  table_tries_map_t::const_iterator it = new_tables_tries->find(rate_table_id);
   trie::p_trie_t trie;
-  if (it == tables_tries.end()) {
+  if (it == new_tables_tries->end()) {
     trie = new trie::Trie();
-    tables_tries[rate_table_id] = trie::uptr_trie_t(trie);
-    rate_table_ids.push_back(rate_table_id);
+    (*new_tables_tries)[rate_table_id] = trie::uptr_trie_t(trie);
+    new_rate_table_ids->push_back(rate_table_id);
   }
-  trie = tables_tries[rate_table_id].get();
+  trie = (*new_tables_tries)[rate_table_id].get();
   size_t prefix_length = prefix.length();
   const char *c_prefix = prefix.c_str();
   trie::Trie::insert(trie, c_prefix, prefix_length, rate, effective_date, end_date);
@@ -93,20 +112,25 @@ void Controller::search_prefix(std::string prefix, search::SearchResult &result)
   unsigned long long number_prefix  = std::stoull(prefix, nullptr, 10);
   if (number_prefix == 0 || std::to_string(number_prefix) != prefix)
     return;
+  std::unique_lock<std::mutex> threads_wait_lock(update_tables_mutex);
+  condition_variable_tables.wait(threads_wait_lock, [] { return updating_tables == false; });
   size_t prefix_length = prefix.length();
   const char* c_prefix = prefix.c_str();
   std::vector<unsigned int> keys;
-  parallel_for(tbb::blocked_range<size_t>(0, tables_tries.size(), 1),
+  parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size(), 1),
     [&](const tbb::blocked_range<size_t> &r)  {
         size_t index = r.begin();
-        unsigned int rate_table_id = rate_table_ids[index];
+        unsigned int rate_table_id = (*rate_table_ids)[index];
         //output_mutex.lock();
         //std::cout << "Searching rate table: " << rate_table_id << std::endl;
-        trie::p_trie_t trie = tables_tries[rate_table_id].get();
-        double rate = trie->search(trie, c_prefix, prefix_length);
+        trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
+        trie::p_trie_data_t trie_data = trie->search(trie, c_prefix, prefix_length);
         //output_mutex.unlock();
-        if (rate != -1)
-          result.insert(rate_table_id, rate);
+        if (trie_data)
+          result.insert(rate_table_id,
+                        trie_data->get_rate(),
+                        trie_data->get_effective_date(),
+                        trie_data->get_end_date());
     }
   );
 }
@@ -124,7 +148,7 @@ int main(int argc, char *argv[]) {
     unsigned int telnet_listen_port = 23;
     unsigned int http_listen_port = 80;
     unsigned int rows_to_read_debug = 0;
-    unsigned int refresh_minutes = 60;
+    unsigned int refresh_minutes = 30;
 
     while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:r:m:h")) != -1) {
        switch (opt) {

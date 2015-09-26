@@ -49,7 +49,7 @@ namespace trie {
       p_trie_t get_child(unsigned char index);
       bool has_child(unsigned char index);
       static void insert(p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date);
-      double search(p_trie_t trie, const char *prefix, size_t prefix_length);
+      p_trie_data_t search(p_trie_t trie, const char *prefix, size_t prefix_length);
   };
 
 
