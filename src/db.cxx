@@ -4,6 +4,7 @@
 #include <tbb/tbb.h>
 #include <string>
 #include <iostream>
+
 using namespace db;
 
 
@@ -49,7 +50,19 @@ void DB::get_new_records() {
   unsigned int conn_count = connections.size();
   if (conn_count == 1) {
     pqxx::work transaction( *connections[0].get() );
-    pqxx::result result = transaction.exec("select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, extract(epoch from effective_date) as effective_date, extract(epoch from end_date) as end_date from rate where rate_id >= " + transaction.quote(first_rate_id) + " order by rate_id");
+    std::string query;
+    query =  "select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, ";
+    query += "extract(epoch from effective_date) as effective_date, ";
+    query += "extract(epoch from end_date) as end_date, ";
+    query += "code.name as code_name ";
+    query += "from rate ";
+    query += "join code using (code) ";
+    query += "join resource using (rate_table_id) ";
+    query += "where resource.active=true and resource.egress=true";
+    query += " and rate_id >= " + transaction.quote(first_rate_id);
+    query += " and rate_id <= " + transaction.quote(last_rate_id);
+    query += " order by rate_id";
+    pqxx::result result = transaction.exec(query);
     transaction.commit();
     consolidate_results(result);
   }
@@ -72,7 +85,19 @@ void DB::get_new_records() {
               track_output_mutex1.lock();
               std::cout << "Reading 100000 records through connection: " << conn_index << ", from rate_id: " << range_first_rate_id << " to rate_id: " << range_last_rate_id << std::endl;
               track_output_mutex1.unlock();
-              pqxx::result result = transaction.exec("select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, extract(epoch from effective_date) as effective_date, extract(epoch from end_date) as end_date from rate where rate_id >= " + transaction.quote(range_first_rate_id) + " and rate_id <= " + transaction.quote(range_last_rate_id) + " order by rate_id");
+              std::string query;
+              query =  "select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, ";
+              query += "extract(epoch from effective_date) as effective_date, ";
+              query += "extract(epoch from end_date) as end_date, ";
+              query += "code.name as code_name ";
+              query += "from rate ";
+              query += "join code using (code) ";
+              query += "join resource using (rate_table_id) ";
+              query += "where resource.active=true and resource.egress=true";
+              query += " and rate_id >= " + transaction.quote(range_first_rate_id);
+              query += " and rate_id <= " + transaction.quote(range_last_rate_id);
+              query += " order by rate_id";
+              pqxx::result result = transaction.exec(query);
               transaction.commit();
               track_output_mutex2.lock();
               std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
@@ -104,19 +129,19 @@ void DB::consolidate_results(pqxx::result result) {
     } catch (std::exception &e) {
       continue;
     }
-    std::string prefix = row[1].as<std::string>();
-    prefix.erase(std::remove(prefix.begin(), prefix.end(), ' '), prefix.end()); //Cleaning database mess
-    if (prefix == "#VALUE!")  //Ignore database mess
+    std::string code = row[1].as<std::string>();
+    code.erase(std::remove(code.begin(), code.end(), ' '), code.end()); //Cleaning database mess
+    if (code == "#VALUE!")  //Ignore database mess
       continue;
-    unsigned long long numeric_prefix = std::strtoull(prefix.c_str(), nullptr, 10);
-    if (numeric_prefix == 0 || std::to_string(numeric_prefix) != prefix) {
-      std::cerr << "BAD PREFIX: " << prefix << std::endl;
+    unsigned long long numeric_code = std::strtoull(code.c_str(), nullptr, 10);
+    if (numeric_code == 0 || std::to_string(numeric_code) != code) {
+      std::cerr << "BAD code: " << code << std::endl;
       continue;
     }
     unsigned int rate_table_id = row[0].as<unsigned int>();
     time_t effective_date = row[7].is_null() ? -1 : row[7].as<time_t>();
     time_t end_date = row[8].is_null() ? -1 : row[8].as<time_t>();
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
-    controller->insert_new_rate_data(rate_table_id, prefix, selected_rate, effective_date, end_date);
+    controller->insert_new_rate_data(rate_table_id, code, selected_rate, effective_date, end_date);
   }
 }

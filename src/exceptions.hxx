@@ -5,7 +5,7 @@
 class TrieInvalidInsertionException : public std::exception {
   virtual const char* what() const throw()
     {
-      return "Cannot do insertion of and empty prefix in a prefix tree";
+      return "Cannot do insertion of and empty code in a prefix tree";
     }
 };
 

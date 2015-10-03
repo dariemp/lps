@@ -1,6 +1,7 @@
 #include "controller.hxx"
 #include "exceptions.hxx"
 #include "rest.hxx"
+#include "telnet.hxx"
 #include <string>
 #include <httpserver.hpp>
 #include <unistd.h>
@@ -33,8 +34,10 @@ void Controller::start_workflow() {
   continue_node<continue_msg> start_node (tbb_graph, [=](const continue_msg &) { create_table_tries(); });
   continue_node<continue_msg> update_node (tbb_graph, [=]( const continue_msg &) { update_table_tries(); });
   continue_node<continue_msg> http_node (tbb_graph, [=]( const continue_msg &) { run_http_server(); });
+  continue_node<continue_msg> telnet_node (tbb_graph, [=]( const continue_msg &) { run_telnet_server(); });
   make_edge(start_node, update_node);
   make_edge(start_node, http_node);
+  make_edge(start_node, telnet_node);
   std::cout << "Starting workflow..." << std::endl;
   start_node.try_put(continue_msg());
   tbb_graph.wait_for_all();
@@ -70,6 +73,11 @@ void Controller::run_http_server() {
   rest_server.run_server(http_listen_port);
 }
 
+void Controller::run_telnet_server() {
+  telnet::Telnet telnet_server;
+  telnet_server.run_server(telnet_listen_port);
+}
+
 
 static uptr_controller_t controller;
 
@@ -90,7 +98,7 @@ p_controller_t Controller::get_controller() {
 }
 
 void Controller::insert_new_rate_data(unsigned int rate_table_id,
-                                      std::string prefix,
+                                      std::string code,
                                       double rate,
                                       time_t effective_date,
                                       time_t end_date) {
@@ -103,19 +111,19 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
     new_rate_table_ids->push_back(rate_table_id);
   }
   trie = (*new_tables_tries)[rate_table_id].get();
-  size_t prefix_length = prefix.length();
-  const char *c_prefix = prefix.c_str();
-  trie::Trie::insert(trie, c_prefix, prefix_length, rate, effective_date, end_date);
+  size_t code_length = code.length();
+  const char *c_code = code.c_str();
+  trie::Trie::insert(trie, c_code, code_length, rate, effective_date, end_date);
 }
 
-void Controller::search_prefix(std::string prefix, search::SearchResult &result) {
-  unsigned long long number_prefix  = std::stoull(prefix, nullptr, 10);
-  if (number_prefix == 0 || std::to_string(number_prefix) != prefix)
+void Controller::search_code(std::string code, search::SearchResult &result) {
+  unsigned long long number_code  = std::stoull(code, nullptr, 10);
+  if (number_code == 0 || std::to_string(number_code) != code)
     return;
   std::unique_lock<std::mutex> threads_wait_lock(update_tables_mutex);
   condition_variable_tables.wait(threads_wait_lock, [] { return updating_tables == false; });
-  size_t prefix_length = prefix.length();
-  const char* c_prefix = prefix.c_str();
+  size_t code_length = code.length();
+  const char* c_code = code.c_str();
   std::vector<unsigned int> keys;
   parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size(), 1),
     [&](const tbb::blocked_range<size_t> &r)  {
@@ -124,7 +132,7 @@ void Controller::search_prefix(std::string prefix, search::SearchResult &result)
         //output_mutex.lock();
         //std::cout << "Searching rate table: " << rate_table_id << std::endl;
         trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
-        trie::p_trie_data_t trie_data = trie->search(trie, c_prefix, prefix_length);
+        trie::p_trie_data_t trie_data = trie->search(trie, c_code, code_length);
         //output_mutex.unlock();
         if (trie_data)
           result.insert(rate_table_id,

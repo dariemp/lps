@@ -40,6 +40,7 @@ namespace ctrl {
       void create_table_tries();
       void update_table_tries();
       void run_http_server();
+      void run_telnet_server();
       Controller(db::ConnectionInfo &conn_info,
                  unsigned int telnet_listen_port,
                  unsigned int http_listen_port);
@@ -49,12 +50,12 @@ namespace ctrl {
                                         unsigned int http_listen_port);
       static p_controller_t get_controller();
       void insert_new_rate_data(unsigned int rate_table_id,
-                                std::string prefix,
+                                std::string code,
                                 double rate,
                                 time_t effective_date,
                                 time_t end_date);
       void start_workflow();
-      void search_prefix(std::string prefix, search::SearchResult &result);
+      void search_code(std::string code, search::SearchResult &result);
   };
 }
 #endif
