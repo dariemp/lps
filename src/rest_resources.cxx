@@ -43,3 +43,12 @@ void RestSearchRateTable::render(const http_request& request, http_response** re
   p_controller->search_rate_table(rate_table_id, result);
   *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
 }
+
+void RestSearchAllCodeNames::render(const http_request& request, http_response** response) {
+  std::cout << "Procesing all codenames" << std::endl;
+  search::SearchResult result;
+  ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
+  p_controller->search_all_code_names(result);
+  *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
+
+}

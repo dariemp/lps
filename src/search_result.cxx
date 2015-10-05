@@ -126,10 +126,10 @@ std::string SearchResult::to_json() {
     json += "\t\t\t\"effective_date\" : \"" + effective_date + "\",\n";
     json += "\t\t\t\"end_date\" : \"" + end_date + "\"\n";
     if (future_max_rate == -1) {
-      json += "\t\t\t\"future_max_rate\" : -,\n";
-      json += "\t\t\t\"future_min_rate\" : -,\n";
-      json += "\t\t\t\"future_effective_date\" : -,\n";
-      json += "\t\t\t\"future_end_date\" : -\n";
+      json += "\t\t\t\"future_max_rate\" : null,\n";
+      json += "\t\t\t\"future_min_rate\" : null,\n";
+      json += "\t\t\t\"future_effective_date\" : null,\n";
+      json += "\t\t\t\"future_end_date\" : null\n";
     }
     else {
       double future_min_rate = (*it)->get_future_min_rate();
@@ -159,7 +159,34 @@ std::string SearchResult::to_text_table() {
     std::string end_date;
     convert_date(epoch_effective_date, effective_date);
     convert_date(epoch_end_date, end_date);
-    //table += std::to_string((*it)->get_rate_table_id()) + "  " + std::to_string((*it)->get_rate()) + "  " + effective_date + "  " + end_date + "\n";
+    double future_max_rate = (*it)->get_future_max_rate();
+    table += "code                  : " + std::to_string((*it)->get_code()) + "\n";
+    table += "code_name             : " + (*it)->get_code_name() + "\n";
+    table += "rate_table_id         : " + std::to_string((*it)->get_rate_table_id()) + "\n";
+    table += "current_max_rate      : " + std::to_string((*it)->get_current_max_rate()) + "\n";
+    table += "current_min_rate      : " + std::to_string((*it)->get_current_min_rate()) + "\n";
+    table += "effective_date        : " + effective_date + "\n";
+    table += "end_date              : " + end_date + "\n";
+    if (future_max_rate == -1) {
+      table += "future_max_rate       : -\n";
+      table += "future_min_rate       : -\n";
+      table += "future_effective_date : -\n";
+      table += "future_end_date       : -\n";
+    }
+    else {
+      double future_min_rate = (*it)->get_future_min_rate();
+      time_t epoch_future_effective_date = (*it)->get_future_effective_date();
+      time_t epoch_future_end_date = (*it)->get_future_end_date();
+      std::string future_effective_date;
+      std::string future_end_date;
+      convert_date(epoch_future_effective_date, future_effective_date);
+      convert_date(epoch_future_end_date, future_end_date);
+      table += "future_max_rate       : " + std::to_string(future_max_rate) + "\n";
+      table += "future_min_rate       : " + std::to_string(future_min_rate)  + "\n";
+      table += "future_effective_date : " + future_effective_date + "\n";
+      table += "future_end_date       : " + future_end_date + "\n";
+    }
+    table += "\n";
   }
   return table;
 }

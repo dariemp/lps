@@ -9,6 +9,7 @@
 using namespace telnet;
 
 Telnet::Telnet() {
+  telnet_resources = uptr_telnet_resources_t(new telnet_resources_t());
   telnet_ctxs = uptr_telnet_ctxs_t(new telnet_ctxs_t());
   outputs = uptr_outputs_t(new outputs_t());
 }
@@ -18,7 +19,21 @@ Telnet::~Telnet() {
     close(it->first);
 }
 
+void Telnet::register_resource(const std::string cmd, TelnetResource &resource) {
+  (*telnet_resources)[cmd] = std::unique_ptr<TelnetResource>(&resource);
+}
+
 void Telnet::run_server(unsigned int telnet_listen_port) {
+  TelnetSearchCode search_code;
+  TelnetSearchCodeName search_code_name;
+  TelnetSearchCodeNameAndRateTable search_code_name_rate_table;
+  TelnetSearchRateTable search_rate_table;
+  TelnetSearchAllCodeNames search_all_code_names;
+  register_resource("search_code", search_code);
+  register_resource("search_code_name", search_code_name);
+  register_resource("search_code_name_rate_table", search_code_name_rate_table);
+  register_resource("search_rate_table", search_rate_table);
+  register_resource("search_all_code_names", search_all_code_names);
   int telnet_socket, telnet_socket6;
   struct sockaddr_in addr, addr6, local;
   struct epoll_event ev;
@@ -136,7 +151,7 @@ void Telnet::process_event(struct epoll_event event) {
 }
 
 void Telnet::process_read(int socket_fd) {
-  static std::string data_read;
+  std::string data_read;
   char buffer[128];
   int bytes_read;
   while ((bytes_read = read(socket_fd, &buffer, 128)) > 0) {
@@ -149,16 +164,16 @@ void Telnet::process_read(int socket_fd) {
 void Telnet::process_write(int socket_fd) {
   output_queue_t* output_queue = (*outputs)[socket_fd].get();
   while (!output_queue->empty()) {
-    TelnetOutput* output = output_queue->front().get();
-    int bytes_written, bytes_to_send = output->get_buffer_size();
-    const char* data = output->get_buffer();
+    std::string* output = output_queue->front().get();
+    int bytes_written, bytes_to_send = output->size();
+    const char* data = output->c_str();
     while ((bytes_written = send(socket_fd, data, bytes_to_send, 0)) < bytes_to_send) {
       bytes_to_send -= bytes_written;
       data += bytes_written;
     }
     output_queue->pop();
   }
-  struct epoll_event ev;
+  epoll_event ev;
   ev.events = EPOLLIN | EPOLLET;
   ev.data.fd = socket_fd;
   if (epoll_ctl(epollfd, EPOLL_CTL_MOD, socket_fd, &ev) == -1) {
@@ -175,7 +190,6 @@ typedef struct {
 void Telnet::telnet_event_handler(telnet_t *telnet, telnet_event_t *event, void *user_data) {
   user_data_t* data = (user_data_t*)user_data;
   int socket_fd = data->socket_fd;
-  std::string chunk;
   switch (event->type) {
   	/* data received */
   	case TELNET_EV_DATA:
@@ -187,9 +201,9 @@ void Telnet::telnet_event_handler(telnet_t *telnet, telnet_event_t *event, void 
   		break;
   	/* data must be sent */
   	case TELNET_EV_SEND:
-      (*outputs)[socket_fd]->emplace(new TelnetOutput(event->data.buffer, event->data.size));
+      (*outputs)[socket_fd]->emplace(new std::string(event->data.buffer, event->data.size));
       if (event->data.size == 2 && event->data.buffer[0] == '\xff' && event->data.buffer[1] == '\xf9') {
-        struct epoll_event ev;
+        epoll_event ev;
         ev.events = EPOLLOUT | EPOLLET;
         ev.data.fd = socket_fd;
         if (epoll_ctl(epollfd, EPOLL_CTL_MOD, socket_fd, &ev) == -1) {
@@ -239,6 +253,22 @@ telnet_t * Telnet::configure_telnet(int socket_fd) {
 }
 
 void Telnet::process_command(telnet_t *telnet, const char *buffer, size_t buffer_size) {
-  telnet_printf(telnet, "Response\n");
+  std::string input = std::string(buffer, buffer_size);
+  input.erase(std::remove(input.begin(), input.end(), '\r'), input.end()); //Cleaning input of CR & LF
+  input.erase(std::remove(input.begin(), input.end(), '\n'), input.end());
+  if (input != "") {
+    size_t pos = input.find_first_of(' ');
+    std::string command;
+    if (pos == std::string::npos)
+      command = input;
+    else
+      command = input.substr(0, pos);
+    if (telnet_resources->find(command) == telnet_resources->end())
+      telnet_printf(telnet, "Unrecognized command.\n");
+    else {
+      std::string output = (*telnet_resources)[command]->process_command(input);
+      telnet_printf(telnet, "%s", output.c_str());
+    }
+  }
   telnet_iac(telnet, '\xf9');
 }

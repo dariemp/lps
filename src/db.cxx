@@ -13,7 +13,7 @@ DB::DB(ConnectionInfo &conn_info) {
   if (conn_info.conn_count < 1)
     throw DBNoConnectionsException();
   std::cout << "Connecting to database with " << conn_info.conn_count << " connections... ";
-  parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count, 1),
+  parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count),
       [=](const tbb::blocked_range<size_t>& r) {
           for (size_t i = r.begin(); i != r.end(); ++i) {
             add_conn_mutex.lock();
@@ -74,7 +74,7 @@ void DB::get_new_records() {
     unsigned int iter_row_count = conn_count * 100000;
     unsigned int iter_count = total_row_count / iter_row_count + 1;
     for (unsigned int i = 0; i < iter_count; i++)
-      parallel_for(tbb::blocked_range<unsigned int>(0, conn_count, 1),
+      parallel_for(tbb::blocked_range<unsigned int>(0, conn_count),
         [=](const tbb::blocked_range<unsigned int>& r) {
               unsigned int conn_index = r.begin();
               if (conn_index >= conn_count)
@@ -145,5 +145,5 @@ void DB::consolidate_results(pqxx::result result) {
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
     controller->insert_new_rate_data(rate_table_id, code, selected_rate, effective_date, end_date);
     controller->insert_new_code(numeric_code, code_name);
-  }  
+  }
 }

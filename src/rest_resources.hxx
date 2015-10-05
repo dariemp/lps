@@ -24,4 +24,9 @@ namespace rest {
       void render(const http_request& request, http_response** response);
   };
 
+  class RestSearchAllCodeNames : public http_resource <RestSearchAllCodeNames> {
+    public:
+      void render(const http_request& request, http_response** response);
+  };
+
 }

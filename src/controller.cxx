@@ -145,7 +145,7 @@ void Controller::_search_code(std::string code, search::SearchResult &result) {
   size_t code_length = code.length();
   const char* c_code = code.c_str();
   ctrl::p_code_names_t p_code_names = code_names.get();
-  parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size(), 1),
+  parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size()),
     [&](const tbb::blocked_range<size_t> &r)  {
         size_t index = r.begin();
         unsigned int rate_table_id = (*rate_table_ids)[index];
@@ -173,4 +173,14 @@ void Controller::search_rate_table(unsigned int rate_table_id, search::SearchRes
   ctrl::p_code_names_t p_code_names = code_names.get();
   trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
   trie->total_search(trie, rate_table_id, p_code_names, result);
+}
+
+void Controller::search_all_code_names(search::SearchResult &result) {
+  for (auto i = code_names->begin(); i != code_names->end(); ++i)
+    for (auto j = tables_tries->begin(); j != tables_tries->end(); ++j) {
+      std::string code_name = i->second;
+      unsigned int rate_table_id = j->first;
+      search_code_name_rate_table(code_name, rate_table_id, result);
+    }
+
 }

@@ -1,6 +1,7 @@
 #ifndef TELNET_H
 #define TELNET_H
 
+#include "telnet_resources.hxx"
 #include <sys/epoll.h>
 #include <libtelnet.h>
 #include <string>
@@ -11,24 +12,15 @@
 
 namespace telnet {
 
-  class TelnetOutput;
   typedef std::unordered_map<int, telnet_t*> telnet_ctxs_t;
   typedef std::unique_ptr<telnet_ctxs_t> uptr_telnet_ctxs_t;
-  typedef std::unique_ptr<TelnetOutput> uptr_output_t;
-  typedef std::queue<uptr_output_t> output_queue_t;
+  typedef std::queue<std::unique_ptr<std::string>> output_queue_t;
   typedef std::unique_ptr<output_queue_t> uptr_output_queue_t;
   typedef std::unordered_map<int, uptr_output_queue_t> outputs_t;
   typedef std::unique_ptr<outputs_t> uptr_outputs_t;
+  typedef std::unordered_map<std::string, std::unique_ptr<TelnetResource>> telnet_resources_t;
+  typedef std::unique_ptr<telnet_resources_t> uptr_telnet_resources_t;
 
-  class TelnetOutput {
-    private:
-      const char* buffer;
-      size_t buffer_size;
-    public:
-      TelnetOutput(const char* buffer, size_t buffer_size) : buffer(buffer), buffer_size(buffer_size) {};
-      const char* get_buffer() { return buffer; }
-      size_t get_buffer_size() { return buffer_size; }
-  };
 
   class Telnet {
     private:
@@ -36,6 +28,7 @@ namespace telnet {
       uptr_telnet_ctxs_t telnet_ctxs;
       uptr_outputs_t outputs;
       telnet_t* configure_telnet(int socket_fd);
+      uptr_telnet_resources_t telnet_resources;
       void process_event(struct epoll_event event);
       void process_read(int socket_fd);
       void process_write(int socket_fd);
@@ -43,6 +36,7 @@ namespace telnet {
     public:
       Telnet();
       ~Telnet();
+      void register_resource(const std::string cmd, TelnetResource &resource);
       void telnet_event_handler(telnet_t *telnet, telnet_event_t *event, void *user_data);
       void run_server(unsigned int telnet_listen_port);
   };

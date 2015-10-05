@@ -177,6 +177,7 @@ void Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length, unsig
     Search a prefix tree in pre-order
 */
 void Trie::total_search(p_trie_t trie, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &search_result) {
+  std::cout << "total search" << std::endl;
   search_nodes_t nodes;
   nodes.emplace_back(new search_node_t({0, trie}));
   unsigned long long code = 0;
@@ -191,42 +192,52 @@ void Trie::total_search(p_trie_t trie, unsigned int rate_table_id, ctrl::p_code_
   time_t future_end_date;
   p_trie_t current_trie;
   unsigned char child_index = 1;
-  while (child_index < 10 && trie->get_child(child_index)->get_data()->get_rate() == -1)
+  std::cout << "top level children search" << std::endl;
+  //while (child_index < 10 && trie->get_child(child_index)->get_data()->get_rate() == -1)
+  while (child_index < 10 && trie->has_child(child_index))
     child_index++;
   if (child_index == 10)
     return;
   else
     current_trie = trie->get_child(child_index);
+  std::cout << "start search" << std::endl;
   while (!nodes.empty()) {
     /** Update the searched variables from the current (parent) trie **/
+    nodes.emplace_back(new search_node_t({child_index, current_trie}));
     total_search_update_vars(current_trie, nodes, code,
                              current_min_rate, current_max_rate, future_min_rate, future_max_rate,
                              effective_date, end_date, future_effective_date, future_end_date);
-    nodes.emplace_back(new search_node_t({child_index, current_trie}));
+
 
     /** Continue the search algorithm visiting the left-most child **/
-    p_trie_t current_trie = current_trie->get_child(0);
-    while (current_trie->get_data()->get_rate() != -1) {
+    /*p_trie_t current_trie = current_trie->get_child(0);
+    while (current_trie->get_data()->get_rate() != -1) {*/
+    while (current_trie->has_child(0)) {
+      std::cout << "left-most" << std::endl;
+      current_trie = current_trie->get_child(0);
       /** Update the searched variables from the current (left-most child) trie **/
+      nodes.emplace_back(new search_node_t({0, current_trie}));
       total_search_update_vars(current_trie, nodes, code,
                                current_min_rate, current_max_rate, future_min_rate, future_max_rate,
                                effective_date, end_date, future_effective_date, future_end_date);
-      nodes.emplace_back(new search_node_t({0, current_trie}));
-      current_trie = current_trie->get_child(0);
+
+      //current_trie = current_trie->get_child(0);
     }
 
-    /** Continue the search algorithm to the right **/
+    /** Continue the search algorithm to the right: selecting a new trie node **/
     p_search_node_t last_node = nodes.back().get();
-    child_index = last_node->child_index;
-    nodes.pop_back();
-    while (!nodes.empty() && child_index == 9) {
-      p_search_node_t last_node = nodes.back().get();
-      child_index = last_node->child_index;
-      nodes.pop_back();
-    }
-    if (!nodes.empty()) {
-      child_index = child_index + 1;
-      current_trie = last_node->trie->get_child(child_index);
+    p_trie_t prev_trie = current_trie;
+    while (!nodes.empty() && prev_trie == current_trie) {
+      if (child_index == 9) {
+        std::cout << "end of children" << std::endl;
+        child_index = last_node->child_index;
+        nodes.pop_back();
+        last_node = nodes.back().get();
+      }
+      else if (last_node->trie->has_child(++child_index)) {
+        std::cout << "right move" << std::endl;
+        current_trie = last_node->trie->get_child(child_index);
+      }
     }
   }
   if (code)

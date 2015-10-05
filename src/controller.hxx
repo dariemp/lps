@@ -67,6 +67,7 @@ namespace ctrl {
       void search_code_name(std::string code_name, search::SearchResult &result);
       void search_code_name_rate_table(std::string code_name, unsigned int rate_table_id, search::SearchResult &result);
       void search_rate_table(unsigned int rate_table_id, search::SearchResult &result);
+      void search_all_code_names(search::SearchResult &result);
   };
 }
 #endif
