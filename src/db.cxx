@@ -141,7 +141,9 @@ void DB::consolidate_results(pqxx::result result) {
     unsigned int rate_table_id = row[0].as<unsigned int>();
     time_t effective_date = row[7].is_null() ? -1 : row[7].as<time_t>();
     time_t end_date = row[8].is_null() ? -1 : row[8].as<time_t>();
+    std::string code_name = row[9].as<std::string>();
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
     controller->insert_new_rate_data(rate_table_id, code, selected_rate, effective_date, end_date);
-  }
+    controller->insert_new_code(numeric_code, code_name);
+  }  
 }
