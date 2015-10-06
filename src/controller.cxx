@@ -176,9 +176,10 @@ void Controller::search_rate_table(unsigned int rate_table_id, search::SearchRes
 }
 
 void Controller::search_all_codes(search::SearchResult &result) {
-  for (auto i = code_names->begin(); i != code_names->end(); ++i)
+  //for (auto i = code_names->begin(); i != code_names->end(); ++i)
+  for (auto i = codes->begin(); i != codes->end(); ++i)
     for (auto j = tables_tries->begin(); j != tables_tries->end(); ++j) {
-      std::string code_name = i->second;
+      std::string code_name = i->first;
       unsigned int rate_table_id = j->first;
       search_code_name_rate_table(code_name, rate_table_id, result);
     }

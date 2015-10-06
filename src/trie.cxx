@@ -121,8 +121,7 @@ void Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length, unsig
   time_t future_end_date;
   while (prefix_length > 0) {
     unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
-    //std::cout << "debug: child index to go: " << (char)(child_index + 48) << std::endl;
-    if (trie->has_child(child_index)) {                // If we have a child node, move to it so we can search the longest prefix
+    if (trie->has_child(child_index)) {         // If we have a child node, move to it so we can search the longest prefix
       trie = trie->get_child(child_index);
       current_code =  current_code * 10 + child_index;
       p_trie_data_t data = trie->get_data();
@@ -156,9 +155,6 @@ void Trie::search(p_trie_t trie, const char *prefix, size_t prefix_length, unsig
     else
       prefix_length = 0;      // Trick to stop the loop if we are in a leaf, longest prefix found
   }
-  /*std::cout << "debug: current prefix: " << prefix << std::endl;
-  std::cout << "debug: current rate: " << trie->get_data()->get_rate() << std::endl;
-  std::cout << "debug: longest_prefix_rate: " << longest_prefix_rate << std::endl;*/
   if (code)
     search_result.insert(code,
                          (*code_names)[code],

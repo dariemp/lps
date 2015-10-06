@@ -29,66 +29,86 @@ args_t TelnetResource::get_args(std::string input) {
 }
 
 std::string TelnetSearchCode::process_command(std::string input) {
-  args_t args = get_args(input);
-  if (args.size() < 1)
-    return "Invalid arguments.\n";
-  std::string code = args[0];
-  unsigned long long numeric_code = std::stoull(code);
-  if (std::to_string(numeric_code) != code)
-    return "Invaid code.\n";
-  std::cout << "Procesing code: " << code << std::endl;
-  search::SearchResult result;
-  ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_code(code, result);
-  return result.to_text_table();
+  try {
+    args_t args = get_args(input);
+    if (args.size() < 1)
+      return "Invalid arguments.\n";
+    std::string code = args[0];
+    unsigned long long numeric_code = std::stoull(code);
+    if (std::to_string(numeric_code) != code)
+      return "Invaid code.\n";
+    std::cout << "Procesing code: " << code << std::endl;
+    search::SearchResult result;
+    ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
+    p_controller->search_code(code, result);
+    return result.to_text_table();
+  } catch (std::exception &e) {
+    return "Internal error";
+  }
 }
 
 std::string TelnetSearchCodeName::process_command(std::string input) {
-  args_t args = get_args(input);
-  if (args.size() < 1)
-    return "Invalid arguments.\n";
-  std::string code_name = args[0];
-  std::cout << "Procesing code name: " << code_name << std::endl;
-  search::SearchResult result;
-  ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_code_name(code_name, result);
-  return result.to_text_table();
+  try {
+    args_t args = get_args(input);
+    if (args.size() < 1)
+      return "Invalid arguments.\n";
+    std::string code_name = args[0];
+    std::cout << "Procesing code name: " << code_name << std::endl;
+    search::SearchResult result;
+    ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
+    p_controller->search_code_name(code_name, result);
+    return result.to_text_table();
+  } catch (std::exception &e) {
+    return "Internal error";
+  }
 }
 
 std::string TelnetSearchCodeNameAndRateTable::process_command(std::string input) {
-  args_t args = get_args(input);
-  if (args.size() < 2)
-    return "Invalid arguments.\n";
-  std::string code_name = args[0];
-  std::string rate_table_id = args[1];
-  unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
-  if (std::to_string(numeric_rate_table_id) != rate_table_id)
-    return "Invaid rate table ID.\n";
-  std::cout << "Procesing code name: " << code_name << " and rate table ID: " << rate_table_id << std::endl;
-  search::SearchResult result;
-  ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, result);
-  return result.to_text_table();
+  try {
+    args_t args = get_args(input);
+    if (args.size() < 2)
+      return "Invalid arguments.\n";
+    std::string code_name = args[0];
+    std::string rate_table_id = args[1];
+    unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
+    if (std::to_string(numeric_rate_table_id) != rate_table_id)
+      return "Invaid rate table ID.\n";
+    std::cout << "Procesing code name: " << code_name << " and rate table ID: " << rate_table_id << std::endl;
+    search::SearchResult result;
+    ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
+    p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, result);
+    return result.to_text_table();
+  } catch (std::exception &e) {
+    return "Internal error";
+  }
 }
 
 std::string TelnetSearchRateTable::process_command(std::string input) {
-  args_t args = get_args(input);
-  if (args.size() < 1)
-    return "Invalid arguments.\n";
-  std::string rate_table_id = args[0];
-  unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
-  if (std::to_string(numeric_rate_table_id) != rate_table_id)
-    return "Invaid rate table ID.\n";
-  std::cout << "Procesing rate table ID: " << rate_table_id << std::endl;
-  search::SearchResult result;
-  ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_rate_table(numeric_rate_table_id, result);
-  return result.to_text_table();
+  try {
+    args_t args = get_args(input);
+    if (args.size() < 1)
+      return "Invalid arguments.\n";
+    std::string rate_table_id = args[0];
+    unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
+    if (std::to_string(numeric_rate_table_id) != rate_table_id)
+      return "Invaid rate table ID.\n";
+    std::cout << "Procesing rate table ID: " << rate_table_id << std::endl;
+    search::SearchResult result;
+    ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
+    p_controller->search_rate_table(numeric_rate_table_id, result);
+    return result.to_text_table();
+  } catch (std::exception &e) {
+    return "Internal error";
+  }
 }
 
 std::string TelnetSearchAllCodes::process_command(std::string input) {
-  search::SearchResult result;
-  ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_all_codes(result);
-  return result.to_text_table();
+  try {
+    search::SearchResult result;
+    ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
+    p_controller->search_all_codes(result);
+    return result.to_text_table();
+  } catch (std::exception &e) {
+    return "Internal error";
+  }
 }

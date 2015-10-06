@@ -119,12 +119,12 @@ std::string SearchResult::to_json() {
         json += ",\n";
     json += "\t\t{\n";
     json += "\t\t\t\"code\" : " + std::to_string((*it)->get_code()) + ",\n";
-    json += "\t\t\t\"code_name\" : " + (*it)->get_code_name() + ",\n";
+    json += "\t\t\t\"code_name\" : \"" + (*it)->get_code_name() + "\",\n";
     json += "\t\t\t\"rate_table_id\" : " + std::to_string((*it)->get_rate_table_id()) + ",\n";
     json += "\t\t\t\"current_max_rate\" : " + std::to_string((*it)->get_current_max_rate()) + ",\n";
     json += "\t\t\t\"current_min_rate\" : " + std::to_string((*it)->get_current_min_rate()) + ",\n";
     json += "\t\t\t\"effective_date\" : \"" + effective_date + "\",\n";
-    json += "\t\t\t\"end_date\" : \"" + end_date + "\"\n";
+    json += "\t\t\t\"end_date\" : \"" + end_date + "\",\n";
     if (future_max_rate == -1) {
       json += "\t\t\t\"future_max_rate\" : null,\n";
       json += "\t\t\t\"future_min_rate\" : null,\n";
