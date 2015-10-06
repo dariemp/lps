@@ -23,6 +23,21 @@ class TrieInvalidChildIndexException : public std::exception {
     }
 };
 
+class TrieMissingChildException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Requested child prefix tree does not exists";
+    }
+};
+
+class TrieChildAlreadyExistsException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Child prefix tree already exists, please edit instead of insert";
+    }
+};
+
+
 class TrieCollisionSameRateException : public std::exception {
   virtual const char* what() const throw()
     {

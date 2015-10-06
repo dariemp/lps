@@ -170,6 +170,8 @@ void Controller::search_code_name_rate_table(std::string code_name, unsigned int
 }
 
 void Controller::search_rate_table(unsigned int rate_table_id, search::SearchResult &result) {
+  if (tables_tries->find(rate_table_id) == tables_tries->end())
+    return;
   ctrl::p_code_names_t p_code_names = code_names.get();
   trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
   trie->total_search(trie, rate_table_id, p_code_names, result);

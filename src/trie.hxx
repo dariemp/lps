@@ -65,10 +65,11 @@ namespace trie {
       p_trie_data_t get_data();
       void set_data(double rate, time_t effective_date, time_t end_date);
       p_trie_t get_child(unsigned char index);
+      p_trie_t insert_child(unsigned char index);
       bool has_child(unsigned char index);
-      static void insert(p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date);
-      static void search(p_trie_t trie, const char *prefix, size_t prefix_length, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &result);
-      static void total_search(p_trie_t trie, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &search_result);
+      static void insert(const p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date);
+      static void search(const p_trie_t trie, const char *prefix, size_t prefix_length, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &result);
+      static void total_search(const p_trie_t trie, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &search_result);
   };
 
 
