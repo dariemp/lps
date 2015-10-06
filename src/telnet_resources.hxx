@@ -35,7 +35,7 @@ class TelnetSearchRateTable : public TelnetResource  {
     std::string process_command(std::string input);
 };
 
-class TelnetSearchAllCodeNames : public TelnetResource  {
+class TelnetSearchAllCodes : public TelnetResource  {
   public:
     std::string process_command(std::string input);
 };

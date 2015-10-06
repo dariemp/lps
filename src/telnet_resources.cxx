@@ -86,9 +86,9 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
   return result.to_text_table();
 }
 
-std::string TelnetSearchAllCodeNames::process_command(std::string input) {
+std::string TelnetSearchAllCodes::process_command(std::string input) {
   search::SearchResult result;
   ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_all_code_names(result);
+  p_controller->search_all_codes(result);
   return result.to_text_table();
 }

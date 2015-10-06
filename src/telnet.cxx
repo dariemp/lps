@@ -28,12 +28,12 @@ void Telnet::run_server(unsigned int telnet_listen_port) {
   TelnetSearchCodeName search_code_name;
   TelnetSearchCodeNameAndRateTable search_code_name_rate_table;
   TelnetSearchRateTable search_rate_table;
-  TelnetSearchAllCodeNames search_all_code_names;
+  TelnetSearchAllCodes search_all_codes;
   register_resource("search_code", search_code);
   register_resource("search_code_name", search_code_name);
   register_resource("search_code_name_rate_table", search_code_name_rate_table);
   register_resource("search_rate_table", search_rate_table);
-  register_resource("search_all_code_names", search_all_code_names);
+  register_resource("search_all_codes", search_all_codes);
   int telnet_socket, telnet_socket6;
   struct sockaddr_in addr, addr6, local;
   struct epoll_event ev;
@@ -267,7 +267,7 @@ void Telnet::process_command(telnet_t *telnet, const char *buffer, size_t buffer
       telnet_printf(telnet, "Unrecognized command.\n");
     else {
       std::string output = (*telnet_resources)[command]->process_command(input);
-      telnet_printf(telnet, "%s", output.c_str());
+      telnet_send(telnet, output.c_str(), output.size());
     }
   }
   telnet_iac(telnet, '\xf9');

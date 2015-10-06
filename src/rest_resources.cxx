@@ -48,7 +48,7 @@ void RestSearchAllCodeNames::render(const http_request& request, http_response**
   std::cout << "Procesing all codenames" << std::endl;
   search::SearchResult result;
   ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-  p_controller->search_all_code_names(result);
+  p_controller->search_all_codes(result);
   *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
 
 }

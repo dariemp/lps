@@ -175,7 +175,7 @@ void Controller::search_rate_table(unsigned int rate_table_id, search::SearchRes
   trie->total_search(trie, rate_table_id, p_code_names, result);
 }
 
-void Controller::search_all_code_names(search::SearchResult &result) {
+void Controller::search_all_codes(search::SearchResult &result) {
   for (auto i = code_names->begin(); i != code_names->end(); ++i)
     for (auto j = tables_tries->begin(); j != tables_tries->end(); ++j) {
       std::string code_name = i->second;
