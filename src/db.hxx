@@ -5,6 +5,7 @@
 #include <pqxx/pqxx>
 #include <memory>
 #include <vector>
+#include "search_result.hxx"
 
 namespace db {
 
@@ -41,6 +42,7 @@ namespace db {
       unsigned int get_refresh_minutes();
       DB(ConnectionInfo &conn_info);
       void get_new_records();
+      void insert_code_name_rate_table_rate(const search::SearchResult &search_result);
   };
 }
 #endif

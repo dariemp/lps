@@ -29,6 +29,17 @@ void Controller::reset_new_tables() {
   updating_tables = false;
 }
 
+void Controller::update_rate_tables_tries() {
+  std::lock_guard<std::mutex> threads_guard_lock(update_tables_mutex);
+  updating_tables = true;
+  rate_table_ids = std::move(new_rate_table_ids);
+  tables_tries = std::move(new_tables_tries);
+  code_names = std::move(new_code_names);
+  codes = std::move(new_codes);
+  reset_new_tables();
+  condition_variable_tables.notify_all();
+}
+
 void Controller::start_workflow() {
   std::cout << "Defining pathways..." << std::endl;
   graph tbb_graph;
@@ -44,17 +55,6 @@ void Controller::start_workflow() {
   tbb_graph.wait_for_all();
 };
 
-void Controller::update_rate_tables_tries() {
-  std::lock_guard<std::mutex> threads_guard_lock(update_tables_mutex);
-  updating_tables = true;
-  rate_table_ids = std::move(new_rate_table_ids);
-  tables_tries = std::move(new_tables_tries);
-  code_names = std::move(new_code_names);
-  codes = std::move(new_codes);
-  reset_new_tables();
-  condition_variable_tables.notify_all();
-}
-
 void Controller::create_table_tries() {
   database = db::uptr_db_t(new db::DB(*conn_info));
   database->get_new_records();
@@ -64,11 +64,18 @@ void Controller::create_table_tries() {
 void Controller::update_table_tries() {
   unsigned int refresh_minutes = database->get_refresh_minutes();
   while (true) {
+    insert_code_name_rate_table_db();
     std::cout << "Next update from the database in " << refresh_minutes << (refresh_minutes == 1 ? " minute." : " minutes.") << std::endl;
     std::this_thread::sleep_for(std::chrono::minutes(refresh_minutes));
     database->get_new_records();
     update_rate_tables_tries();
   }
+}
+
+void Controller::insert_code_name_rate_table_db() {
+  search::SearchResult result;
+  search_all_codes(result);
+  database->insert_code_name_rate_table_rate(result);
 }
 
 void Controller::run_http_server() {
@@ -133,6 +140,8 @@ void Controller::search_code(std::string code, search::SearchResult &result) {
 }
 
 void Controller::search_code_name(std::string code_name, search::SearchResult &result) {
+  if (codes->find(code_name) == codes->end())
+    return;
   unsigned long long numeric_code = (*codes)[code_name];
   if (numeric_code == 0)
     return;
@@ -147,15 +156,18 @@ void Controller::_search_code(std::string code, search::SearchResult &result) {
   ctrl::p_code_names_t p_code_names = code_names.get();
   parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size()),
     [&](const tbb::blocked_range<size_t> &r)  {
-        size_t index = r.begin();
-        unsigned int rate_table_id = (*rate_table_ids)[index];
+      for (auto i = r.begin(); i != r.end(); ++i) {
+        unsigned int rate_table_id = (*rate_table_ids)[i];
         trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
         trie->search(trie, c_code, code_length, rate_table_id, p_code_names, result);
+      }
     }
   );
 }
 
 void Controller::search_code_name_rate_table(std::string code_name, unsigned int rate_table_id, search::SearchResult &result) {
+  if (codes->find(code_name) == codes->end())
+    return;
   unsigned long long numeric_code = (*codes)[code_name];
   if (numeric_code == 0)
     return;
@@ -178,12 +190,17 @@ void Controller::search_rate_table(unsigned int rate_table_id, search::SearchRes
 }
 
 void Controller::search_all_codes(search::SearchResult &result) {
-  //for (auto i = code_names->begin(); i != code_names->end(); ++i)
+  std::vector<std::pair<std::string, unsigned int>> code_name_rate_table;
   for (auto i = codes->begin(); i != codes->end(); ++i)
-    for (auto j = tables_tries->begin(); j != tables_tries->end(); ++j) {
-      std::string code_name = i->first;
-      unsigned int rate_table_id = j->first;
-      search_code_name_rate_table(code_name, rate_table_id, result);
-    }
-
+    for (auto j = tables_tries->begin(); j != tables_tries->end(); ++j)
+      code_name_rate_table.push_back(std::make_pair(i->first, j->first));
+  parallel_for (tbb::blocked_range<size_t>(0, code_name_rate_table.size()),
+    [&](const tbb::blocked_range<size_t> &r)  {
+      for (auto i = r.begin(); i != r.end(); ++i) {
+        std::pair<std::string, unsigned int> pair = code_name_rate_table[i];
+        std::string code_name = pair.first;
+        unsigned int rate_table_id = pair.second;
+        search_code_name_rate_table(code_name, rate_table_id, result);
+      }
+    });
 }

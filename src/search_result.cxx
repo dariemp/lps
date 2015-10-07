@@ -1,5 +1,6 @@
 #include "search_result.hxx"
 #include <time.h>
+#include <iostream>
 
 using namespace search;
 
@@ -62,6 +63,10 @@ time_t SearchResultElement::get_future_end_date() {
   return future_end_date;
 }
 
+SearchResultElement* SearchResult::operator [](size_t index) const {
+  return data[index].get();
+}
+
 void SearchResult::insert(unsigned long long code,
                           std::string code_name,
                           unsigned int rate_table_id,
@@ -83,7 +88,9 @@ void SearchResult::insert(unsigned long long code,
   size_t data_length = data.size();
   while (i <  data_length && current_max_rate < data[i]->get_current_max_rate()) i++;
   if (i < data_length) {
-    if (rate_table_id != data[i]->get_rate_table_id())
+    if (rate_table_id != data[i]->get_rate_table_id() ||
+        code != data[i]->get_code() ||
+        code_name != data[i]->get_code_name())
       data.emplace(data.begin() + i,
                    new SearchResultElement(code, code_name, rate_table_id, current_min_rate, current_max_rate,
                                            future_min_rate, future_max_rate, effective_date, end_date,
@@ -189,4 +196,8 @@ std::string SearchResult::to_text_table() {
     table += "\n";
   }
   return table;
+}
+
+size_t SearchResult::size() const {
+  return data.size();
 }

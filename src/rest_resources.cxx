@@ -13,7 +13,7 @@ void RestSearchCode::render(const http_request& request, http_response** respons
     p_controller->search_code(code, result);
     *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
   } catch (std::exception &e) {
-    *response = new http_response(http_response_builder("internal error", 500, "text/plain").string_response());
+    *response = new http_response(http_response_builder("Error", 400, "text/plain").string_response());
   }
 }
 
@@ -26,7 +26,7 @@ void RestSearchCodeName::render(const http_request& request, http_response** res
     p_controller->search_code_name(code_name, result);
     *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
   } catch (std::exception &e) {
-    *response = new http_response(http_response_builder("internal error", 500, "text/plain").string_response());
+    *response = new http_response(http_response_builder("Error", 400, "text/plain").string_response());
   }
 }
 
@@ -41,7 +41,7 @@ void RestSearchCodeNameAndRateTable::render(const http_request& request, http_re
     p_controller->search_code_name_rate_table(code_name, rate_table_id, result);
     *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
   } catch (std::exception &e) {
-    *response = new http_response(http_response_builder("internal error", 500, "text/plain").string_response());
+    *response = new http_response(http_response_builder("Error", 400, "text/plain").string_response());
   }
 
 }
@@ -56,7 +56,7 @@ void RestSearchRateTable::render(const http_request& request, http_response** re
     p_controller->search_rate_table(rate_table_id, result);
     *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
   } catch (std::exception &e) {
-    *response = new http_response(http_response_builder("internal error", 500, "text/plain").string_response());
+    *response = new http_response(http_response_builder("Error", 400, "text/plain").string_response());
   }
 }
 
@@ -68,6 +68,6 @@ void RestSearchAllCodeNames::render(const http_request& request, http_response**
     p_controller->search_all_codes(result);
     *response = new http_response(http_response_builder(result.to_json(), 200, "application/json").string_response());
   } catch (std::exception &e) {
-    *response = new http_response(http_response_builder("internal error", 500, "text/plain").string_response());
+    *response = new http_response(http_response_builder("Error", 400, "text/plain").string_response());
   }
 }

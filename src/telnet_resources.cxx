@@ -43,7 +43,7 @@ std::string TelnetSearchCode::process_command(std::string input) {
     p_controller->search_code(code, result);
     return result.to_text_table();
   } catch (std::exception &e) {
-    return "Internal error";
+    return "Error";
   }
 }
 
@@ -59,7 +59,7 @@ std::string TelnetSearchCodeName::process_command(std::string input) {
     p_controller->search_code_name(code_name, result);
     return result.to_text_table();
   } catch (std::exception &e) {
-    return "Internal error";
+    return "Error";
   }
 }
 
@@ -79,7 +79,7 @@ std::string TelnetSearchCodeNameAndRateTable::process_command(std::string input)
     p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, result);
     return result.to_text_table();
   } catch (std::exception &e) {
-    return "Internal error";
+    return "Error";
   }
 }
 
@@ -98,7 +98,7 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
     p_controller->search_rate_table(numeric_rate_table_id, result);
     return result.to_text_table();
   } catch (std::exception &e) {
-    return "Internal error";
+    return "Error";
   }
 }
 
@@ -109,6 +109,6 @@ std::string TelnetSearchAllCodes::process_command(std::string input) {
     p_controller->search_all_codes(result);
     return result.to_text_table();
   } catch (std::exception &e) {
-    return "Internal error";
+    return "Error";
   }
 }

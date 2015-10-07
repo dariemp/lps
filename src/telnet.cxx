@@ -40,6 +40,7 @@ void Telnet::run_server(unsigned int telnet_listen_port) {
   int conn_sock, nfds;
   int addrlen = sizeof(struct sockaddr_in);
   memset(&addr, 0, addrlen);
+  memset(&addr6, 0, addrlen);
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(telnet_listen_port);

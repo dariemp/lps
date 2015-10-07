@@ -45,6 +45,7 @@ namespace ctrl {
       void update_rate_tables_tries();
       void create_table_tries();
       void update_table_tries();
+      void insert_code_name_rate_table_db();
       void run_http_server();
       void run_telnet_server();
       void _search_code(std::string code, search::SearchResult &result);

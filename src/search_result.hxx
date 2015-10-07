@@ -55,6 +55,7 @@ namespace search {
       search_result_elements_t data;
       void convert_date(time_t epoch_date, std::string &readable_date);
     public:
+      SearchResultElement* operator [](size_t index) const;
       void insert(unsigned long long code,
                   std::string code_name,
                   unsigned int rate_table_id,
@@ -66,6 +67,7 @@ namespace search {
                   time_t end_date,
                   time_t future_effective_date,
                   time_t future_end_date);
+      size_t size() const;
       std::string to_json();
       std::string to_text_table();
   };
