@@ -97,9 +97,9 @@ void DB::get_new_records() {
             query += " order by rate_id";
             pqxx::result result = transaction.exec(query);
             transaction.commit();
-            track_output_mutex2.lock();
+            track_output_mutex1.lock();
             std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
-            track_output_mutex2.unlock();
+            track_output_mutex1.unlock();
             consolidate_results(result);
           }
         });
@@ -142,8 +142,7 @@ void DB::consolidate_results(pqxx::result result) {
     time_t end_date = row[8].is_null() ? -1 : row[8].as<time_t>();
     std::string code_name = row[9].as<std::string>();
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
-    controller->insert_new_rate_data(rate_table_id, code, selected_rate, effective_date, end_date);
-    controller->insert_new_code(numeric_code, code_name);
+    controller->insert_new_rate_data(rate_table_id, code, numeric_code, code_name, selected_rate, effective_date, end_date);
   }
 }
 

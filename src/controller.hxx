@@ -18,17 +18,19 @@ namespace ctrl {
   typedef std::unique_ptr<rate_table_ids_t> uptr_rate_table_ids_t;
   typedef std::unordered_map<unsigned int, trie::uptr_trie_t> table_tries_map_t;
   typedef std::unique_ptr<table_tries_map_t> uptr_table_tries_map_t;
+  typedef std::unique_lock<std::mutex> mutex_unique_lock_t;
   typedef std::unique_ptr<Controller> uptr_controller_t;
   typedef Controller* p_controller_t;
-  static tbb::mutex map_insertion_mutex;
-  static tbb::mutex code_insertion_mutex;
-  static std::mutex update_tables_mutex;
-  static std::condition_variable condition_variable_tables;
-  static std::atomic_bool updating_tables;
-  //static tbb::mutex output_mutex;
 
   class Controller {
     private:
+      tbb::mutex map_insertion_mutex;
+      std::mutex update_tables_mutex;
+      std::mutex access_tables_mutex;
+      std::atomic_bool updating_tables;
+      std::atomic_uint table_access_count;
+      std::condition_variable update_tables_holder;
+      std::condition_variable access_tables_holder;
       db::uptr_db_t database;
       db::p_conn_info_t conn_info;
       uptr_rate_table_ids_t rate_table_ids;
@@ -57,9 +59,10 @@ namespace ctrl {
                                         unsigned int telnet_listen_port,
                                         unsigned int http_listen_port);
       static p_controller_t get_controller();
-      void insert_new_code(unsigned long long code, std::string code_name);
       void insert_new_rate_data(unsigned int rate_table_id,
                                 std::string code,
+                                unsigned long long numeric_code,
+                                std::string code_name,
                                 double rate,
                                 time_t effective_date,
                                 time_t end_date);
