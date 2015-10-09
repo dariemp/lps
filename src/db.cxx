@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream>
 #include <atomic>
+#include <thread>
 
 using namespace db;
 
@@ -60,8 +61,8 @@ void DB::get_new_records() {
     query += "join code using (code) ";
     query += "join resource using (rate_table_id) ";
     query += "where resource.active=true and resource.egress=true";
-    query += " and rate_id >= " + transaction.quote(first_rate_id);
-    query += " and rate_id <= " + transaction.quote(last_rate_id);
+    query += " and rate_id between " + transaction.quote(first_rate_id);
+    query += " and " + transaction.quote(last_rate_id);
     query += " order by rate_id";
     pqxx::result result = transaction.exec(query);
     transaction.commit();
@@ -74,47 +75,62 @@ void DB::get_new_records() {
     unsigned int chunk_size = p_conn_info->chunk_size;
     std::atomic_uint last_queried_row;
     last_queried_row = first_rate_id - 1;
-    tbb::task_group tasks;
     tbb::mutex range_selection_mutex;
-    for (unsigned int conn_index = 0; conn_index < conn_count; ++conn_index) {
-      tasks.run([&, conn_index]{
-        unsigned int range_first_rate_id;
-        unsigned int range_last_rate_id;
-        while (last_queried_row < last_rate_id) {
-          {
-            tbb::mutex::scoped_lock lock(range_selection_mutex);
-            range_first_rate_id = last_queried_row + 1;
-            range_last_rate_id = range_first_rate_id + chunk_size;
-            if (range_last_rate_id > last_rate_id)
-              range_last_rate_id = last_rate_id;
-            last_queried_row = range_last_rate_id;
+    parallel_for (tbb::blocked_range<size_t>(0, conn_count),
+      [&](const tbb::blocked_range<size_t> &r){
+        tbb::task_group tasks;
+        for (size_t conn_index = r.begin(); conn_index != r.end(); ++conn_index) {
+          unsigned int range_first_rate_id;
+          unsigned int range_last_rate_id;
+          while (last_queried_row < last_rate_id) {
+            {
+              tbb::mutex::scoped_lock lock(range_selection_mutex);
+              range_first_rate_id = last_queried_row + 1;
+              range_last_rate_id = range_first_rate_id + chunk_size;
+              if (range_last_rate_id > last_rate_id)
+                range_last_rate_id = last_rate_id;
+              last_queried_row = range_last_rate_id;
+            }
+            int remaining_retries = 3;
+            while (remaining_retries > 0) {
+              try {
+                pqxx::work transaction(*connections[conn_index].get());
+                {
+                  tbb::mutex::scoped_lock lock(track_output_mutex1);
+                  std::cout << "Reading " << chunk_size << " records through connection: " << conn_index << ", from rate_id: " << range_first_rate_id << " to rate_id: " << range_last_rate_id << std::endl;
+                }
+                std::string query;
+                query =  "select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, ";
+                query += "extract(epoch from effective_date) as effective_date, ";
+                query += "extract(epoch from end_date) as end_date, ";
+                query += "code.name as code_name ";
+                query += "from rate ";
+                query += "join code using (code) ";
+                query += "join resource using (rate_table_id) ";
+                query += "where resource.active=true and resource.egress=true";
+                query += " and rate_id between " + transaction.quote(range_first_rate_id);
+                query += " and " + transaction.quote(range_last_rate_id);
+                query += " order by rate_id";
+                pqxx::result result = transaction.exec(query);
+                transaction.commit();
+                {
+                  tbb::mutex::scoped_lock lock(track_output_mutex2);
+                  std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
+                }
+                consolidate_results(result);
+                remaining_retries = -1;
+              } catch (std::exception &e) {
+                remaining_retries--;
+                tbb::mutex::scoped_lock lock(track_output_mutex2);
+                std::cout << "Failed query at connection: " << conn_index << ". Retrying..." << std::endl;
+              }
+            }
+            if (remaining_retries == 0) {
+              throw DBQueryFailedException();
+            }
           }
-          pqxx::work transaction(*connections[conn_index].get());
-          track_output_mutex1.lock();
-          std::cout << "Reading " << chunk_size << " records through connection: " << conn_index << ", from rate_id: " << range_first_rate_id << " to rate_id: " << range_last_rate_id << std::endl;
-          track_output_mutex1.unlock();
-          std::string query;
-          query =  "select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, ";
-          query += "extract(epoch from effective_date) as effective_date, ";
-          query += "extract(epoch from end_date) as end_date, ";
-          query += "code.name as code_name ";
-          query += "from rate ";
-          query += "join code using (code) ";
-          query += "join resource using (rate_table_id) ";
-          query += "where resource.active=true and resource.egress=true";
-          query += " and rate_id >= " + transaction.quote(range_first_rate_id);
-          query += " and rate_id <= " + transaction.quote(range_last_rate_id);
-          query += " order by rate_id";
-          pqxx::result result = transaction.exec(query);
-          transaction.commit();
-          track_output_mutex2.lock();
-          std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
-          track_output_mutex2.unlock();
-          consolidate_results(result);
         }
       });
-    }
-    tasks.wait();
   }
   std::cout << "done." << std::endl;
 }

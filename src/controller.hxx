@@ -24,6 +24,7 @@ namespace ctrl {
 
   class Controller {
     private:
+      time_t last_db_update;
       tbb::mutex map_insertion_mutex;
       std::mutex update_tables_mutex;
       std::mutex access_tables_mutex;

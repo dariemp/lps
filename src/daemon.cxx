@@ -67,7 +67,6 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
     std::cout << "Starting..." << std::endl;
-    //p_conn_info_t conn_info =  new ConnectionInfo();
     db::ConnectionInfo conn_info;
     conn_info.host = dbhost;
     conn_info.dbname = dbname;
@@ -78,6 +77,10 @@ int main(int argc, char *argv[]) {
     conn_info.rows_to_read_debug = rows_to_read_debug;
     conn_info.refresh_minutes = refresh_minutes;
     conn_info.chunk_size = chunk_size;
+    unsigned int num_thread = tbb::task_scheduler_init::default_num_threads();
+    if (num_thread < connections_count)
+      num_thread = connections_count;
+    tbb::task_scheduler_init scheduler(num_thread);
 
     ctrl::p_controller_t controller  = ctrl::Controller::get_controller(conn_info, telnet_listen_port, http_listen_port);
     controller->start_workflow();

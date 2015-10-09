@@ -48,7 +48,7 @@ void Telnet::run_server(unsigned int telnet_listen_port) {
   addr6.sin_addr.s_addr = INADDR_ANY;
   addr6.sin_port = htons(telnet_listen_port);
   telnet_socket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-  telnet_socket6 = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  telnet_socket6 = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK | IPV6_V6ONLY, 0);
   epollfd = epoll_create(10);
   if (epollfd == -1) {
     std::cerr << "Could not create network queue" << std::endl;

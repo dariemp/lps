@@ -59,6 +59,13 @@ class DBNoConnectionsException : public std::exception {
     }
 };
 
+class DBQueryFailedException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Database queries are failing";
+    }
+};
+
 class ControllerNoInstanceException : public std::exception {
   virtual const char* what() const throw()
     {
