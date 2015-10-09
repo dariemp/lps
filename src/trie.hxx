@@ -40,11 +40,11 @@ namespace trie {
       void set_end_date(time_t end_date);
   };
 
+
+static tbb::mutex trie_insertion_mutex;
   /**
       Prefix tree (trie) that stores rates and timestamps
   */
-  static tbb::mutex trie_insertion_mutex;
-
   class Trie {
     private:
       TrieData data;

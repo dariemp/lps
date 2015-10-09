@@ -10,7 +10,6 @@ namespace search {
 
   class SearchResultElement;
   typedef std::vector<std::unique_ptr<SearchResultElement>> search_result_elements_t;
-  static tbb::mutex search_insertion_mutex;
 
   class SearchResultElement {
     private:
@@ -52,6 +51,7 @@ namespace search {
 
   class SearchResult {
     private:
+      tbb::mutex search_insertion_mutex;
       search_result_elements_t data;
       void convert_date(time_t epoch_date, std::string &readable_date);
     public:

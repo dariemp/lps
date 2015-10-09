@@ -16,9 +16,6 @@ namespace db {
   typedef std::unique_ptr<DB> uptr_db_t;
   typedef std::unique_ptr<pqxx::connection> uptr_connection_t;
   typedef  std::vector<uptr_connection_t> connections_t;
-  static tbb::mutex add_conn_mutex;
-  static tbb::mutex track_output_mutex1;
-  static tbb::mutex track_output_mutex2;
 
   class ConnectionInfo {
     public:
@@ -30,10 +27,14 @@ namespace db {
       unsigned int conn_count;
       unsigned int rows_to_read_debug;
       unsigned int refresh_minutes;
+      unsigned int chunk_size;
   };
 
   class DB {
     private:
+      tbb::mutex add_conn_mutex;
+      tbb::mutex track_output_mutex1;
+      tbb::mutex track_output_mutex2;
       p_conn_info_t p_conn_info;
       connections_t connections;
       unsigned int get_first_rate_id(bool from_beginning=true);
