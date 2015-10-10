@@ -34,13 +34,18 @@ std::string TelnetSearchCode::process_command(std::string input) {
     if (args.size() < 1)
       return "Invalid arguments.\n";
     std::string code = args[0];
+    trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
+    if (args.size() > 1) {
+      std::string arg_rate_type = args[1];
+      rate_type = trie::to_rate_type_t(arg_rate_type);
+    }
     unsigned long long numeric_code = std::stoull(code);
     if (std::to_string(numeric_code) != code)
       return "Invaid code.\n";
-    std::cout << "Procesing code: " << code << std::endl;
+    std::cout << "Processing code: " << code << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_code(code, result);
+    p_controller->search_code(code, rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";
@@ -53,10 +58,15 @@ std::string TelnetSearchCodeName::process_command(std::string input) {
     if (args.size() < 1)
       return "Invalid arguments.\n";
     std::string code_name = args[0];
-    std::cout << "Procesing code name: " << code_name << std::endl;
+    trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
+    if (args.size() > 1) {
+      std::string arg_rate_type = args[1];
+      rate_type = trie::to_rate_type_t(arg_rate_type);
+    }
+    std::cout << "Processing code name: " << code_name << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_code_name(code_name, result);
+    p_controller->search_code_name(code_name, rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";
@@ -70,13 +80,18 @@ std::string TelnetSearchCodeNameAndRateTable::process_command(std::string input)
       return "Invalid arguments.\n";
     std::string code_name = args[0];
     std::string rate_table_id = args[1];
+    trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
+    if (args.size() > 2) {
+      std::string arg_rate_type = args[2];
+      rate_type = trie::to_rate_type_t(arg_rate_type);
+    }
     unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
     if (std::to_string(numeric_rate_table_id) != rate_table_id)
-      return "Invaid rate table ID.\n";
-    std::cout << "Procesing code name: " << code_name << " and rate table ID: " << rate_table_id << std::endl;
+      return "Invalid rate table ID.\n";
+    std::cout << "Processing code name: " << code_name << " and rate table ID: " << rate_table_id << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, result);
+    p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";
@@ -89,13 +104,18 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
     if (args.size() < 1)
       return "Invalid arguments.\n";
     std::string rate_table_id = args[0];
+    trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
+    if (args.size() > 1) {
+      std::string arg_rate_type = args[1];
+      rate_type = trie::to_rate_type_t(arg_rate_type);
+    }
     unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
     if (std::to_string(numeric_rate_table_id) != rate_table_id)
-      return "Invaid rate table ID.\n";
-    std::cout << "Procesing rate table ID: " << rate_table_id << std::endl;
+      return "Invalid rate table ID.\n";
+    std::cout << "Processing rate table ID: " << rate_table_id << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_rate_table(numeric_rate_table_id, result);
+    p_controller->search_rate_table(numeric_rate_table_id, rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";
@@ -104,9 +124,15 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
 
 std::string TelnetSearchAllCodes::process_command(std::string input) {
   try {
+    trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
+    args_t args = get_args(input);
+    if (args.size() > 0) {
+      std::string arg_rate_type = args[0];
+      rate_type = trie::to_rate_type_t(arg_rate_type);
+    }
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_all_codes(result);
+    p_controller->search_all_codes(rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";

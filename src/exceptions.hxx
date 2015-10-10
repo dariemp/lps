@@ -66,6 +66,13 @@ class DBQueryFailedException : public std::exception {
     }
 };
 
+class RestRequestArgException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Invalid parameter value";
+    }
+};
+
 class ControllerNoInstanceException : public std::exception {
   virtual const char* what() const throw()
     {

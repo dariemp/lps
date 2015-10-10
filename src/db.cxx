@@ -53,7 +53,7 @@ void DB::get_new_records() {
   if (conn_count == 1) {
     pqxx::work transaction( *connections[0].get() );
     std::string query;
-    query =  "select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, ";
+    query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
     query += "extract(epoch from effective_date) as effective_date, ";
     query += "extract(epoch from end_date) as end_date, ";
     query += "code.name as code_name ";
@@ -100,7 +100,7 @@ void DB::get_new_records() {
                   std::cout << "Reading " << chunk_size << " records through connection: " << conn_index << ", from rate_id: " << range_first_rate_id << " to rate_id: " << range_last_rate_id << std::endl;
                 }
                 std::string query;
-                query =  "select rate_table_id, code, rate_type, rate, inter_rate, intra_rate, local_rate, ";
+                query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
                 query += "extract(epoch from effective_date) as effective_date, ";
                 query += "extract(epoch from end_date) as end_date, ";
                 query += "code.name as code_name ";
@@ -137,25 +137,6 @@ void DB::get_new_records() {
 
 void DB::consolidate_results(pqxx::result result) {
   for (pqxx::result::const_iterator row = result.begin(); row != result.end(); ++row) {
-    double selected_rate;
-    try {
-      int rate_type = row[2].as<int>();
-      switch (rate_type) {
-        case 1:
-          selected_rate = row[4].as<double>();
-          break;
-        case 2:
-          selected_rate = row[5].as<double>();
-          break;
-        case 3:
-          selected_rate = row[6].as<double>();
-          break;
-        default:
-          selected_rate = row[3].as<double>();
-      }
-    } catch (std::exception &e) {
-      continue;
-    }
     std::string code = row[1].as<std::string>();
     code.erase(std::remove(code.begin(), code.end(), ' '), code.end()); //Cleaning database mess
     if (code == "#VALUE!")  //Ignore database mess
@@ -166,11 +147,15 @@ void DB::consolidate_results(pqxx::result result) {
       continue;
     }
     unsigned int rate_table_id = row[0].as<unsigned int>();
-    time_t effective_date = row[7].is_null() ? -1 : row[7].as<time_t>();
-    time_t end_date = row[8].is_null() ? -1 : row[8].as<time_t>();
-    std::string code_name = row[9].as<std::string>();
+    double default_rate = row[2].is_null() ? -1 : row[2].as<double>();
+    double inter_rate = row[3].is_null() ? -1 : row[3].as<double>();
+    double intra_rate = row[4].is_null() ? -1 : row[4].as<double>();
+    double local_rate = row[5].is_null() ? -1 : row[5].as<double>();
+    time_t effective_date = row[6].is_null() ? -1 : row[6].as<time_t>();
+    time_t end_date = row[7].is_null() ? -1 : row[7].as<time_t>();
+    std::string code_name = row[8].as<std::string>();
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
-    controller->insert_new_rate_data(rate_table_id, code, numeric_code, code_name, selected_rate, effective_date, end_date);
+    controller->insert_new_rate_data(rate_table_id, code, numeric_code, code_name, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date);
   }
 }
 

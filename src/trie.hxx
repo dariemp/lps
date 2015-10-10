@@ -5,7 +5,7 @@
 #define TRIE_H
 
 #include "search_result.hxx"
-#include "shared_types.hxx"
+#include "shared.hxx"
 #include <tbb/tbb.h>
 #include <memory>
 #include <time.h>
@@ -27,17 +27,26 @@ namespace trie {
 
   class TrieData {
     private:
-      double rate;
-      time_t effective_date;
-      time_t end_date;
+      double default_rate;
+      double inter_rate;
+      double intra_rate;
+      double local_rate;
+      time_t default_effective_date;
+      time_t default_end_date;
+      time_t inter_effective_date;
+      time_t inter_end_date;
+      time_t intra_effective_date;
+      time_t intra_end_date;
+      time_t local_effective_date;
+      time_t local_end_date;
     public:
       TrieData();
-      double get_rate();
-      time_t get_effective_date();
-      time_t get_end_date();
-      void set_rate(double rate);
-      void set_effective_date(time_t effective_date);
-      void set_end_date(time_t end_date);
+      double get_rate(rate_type_t rate_type);
+      time_t get_effective_date(rate_type_t rate_type);
+      time_t get_end_date(rate_type_t rate_type);
+      void set_rate(rate_type_t rate_type, double rate);
+      void set_effective_date(rate_type_t rate_type, time_t effective_date);
+      void set_end_date(rate_type_t rate_type, time_t end_date);
   };
 
 
@@ -52,6 +61,7 @@ static tbb::mutex trie_insertion_mutex;
       static void total_search_update_vars(const p_trie_t &current_trie,
                                            const search_nodes_t &nodes,
                                            unsigned long long &code,
+                                           const rate_type_t rate_type,
                                            double &current_min_rate,
                                            double &current_max_rate,
                                            double &future_min_rate,
@@ -63,13 +73,13 @@ static tbb::mutex trie_insertion_mutex;
     public:
       Trie();
       p_trie_data_t get_data();
-      void set_data(double rate, time_t effective_date, time_t end_date);
+      void set_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date);
       p_trie_t get_child(unsigned char index);
       p_trie_t insert_child(unsigned char index);
       bool has_child(unsigned char index);
-      static void insert(const p_trie_t trie, const char *prefix, size_t prefix_length, double rate, time_t effective_date, time_t end_date);
-      static void search(const p_trie_t trie, const char *prefix, size_t prefix_length, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &result);
-      static void total_search(const p_trie_t trie, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &search_result);
+      static void insert(const p_trie_t trie, const char *prefix, size_t prefix_length, double default_rate, double inter_rate, double intra_rate, double local_rate, time_t effective_date, time_t end_date);
+      static void search(const p_trie_t trie, const char *prefix, size_t prefix_length, rate_type_t rate_type, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &result);
+      static void total_search(const p_trie_t trie, rate_type_t rate_type, unsigned int rate_table_id, ctrl::p_code_names_t code_names, search::SearchResult &search_result);
   };
 
 

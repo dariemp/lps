@@ -94,13 +94,13 @@ void Controller::update_table_tries() {
   }
 }
 
-void Controller::insert_code_name_rate_table_db() {
+/*void Controller::insert_code_name_rate_table_db() {
   search::SearchResult result;
   std::cout << "Searching all codes..." << std::endl;
   search_all_codes(result);
   std::cout << "Updating database with rate data..." << std::endl;
   database->insert_code_name_rate_table_rate(result);
-}
+}*/
 
 void Controller::run_http_server() {
   rest::Rest rest_server;
@@ -135,7 +135,10 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
                                       std::string code,
                                       unsigned long long numeric_code,
                                       std::string code_name,
-                                      double rate,
+                                      double default_rate,
+                                      double inter_rate,
+                                      double intra_rate,
+                                      double local_rate,
                                       time_t effective_date,
                                       time_t end_date) {
   trie::p_trie_t trie;
@@ -157,20 +160,20 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
   trie = (*new_tables_tries)[rate_table_id].get();
   size_t code_length = code.length();
   const char *c_code = code.c_str();
-  trie::Trie::insert(trie, c_code, code_length, rate, effective_date, end_date);
+  trie::Trie::insert(trie, c_code, code_length, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date);
 }
 
-void Controller::search_code(std::string code, search::SearchResult &result) {
+void Controller::search_code(std::string code, trie::rate_type_t rate_type, search::SearchResult &result) {
   unsigned long long numeric_code = std::stoull(code, nullptr, 10);
   if (numeric_code == 0 || std::to_string(numeric_code) != code)
     return;
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
-  _search_code(code, result);
+  _search_code(code, rate_type, result);
 }
 
-void Controller::search_code_name(std::string code_name, search::SearchResult &result) {
+void Controller::search_code_name(std::string code_name, trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
@@ -179,10 +182,10 @@ void Controller::search_code_name(std::string code_name, search::SearchResult &r
   unsigned long long numeric_code = (*codes)[code_name];
   if (numeric_code == 0)
     return;
-  _search_code(std::to_string(numeric_code), result);
+  _search_code(std::to_string(numeric_code), rate_type, result);
 }
 
-void Controller::_search_code(std::string code, search::SearchResult &result) {
+void Controller::_search_code(std::string code, trie::rate_type_t rate_type, search::SearchResult &result) {
   /** THIS SHOULD BE NEVER CALLED DIRECTLY BECAUSE IT IS NOT THREAD SAFE */
   size_t code_length = code.length();
   const char* c_code = code.c_str();
@@ -196,7 +199,7 @@ void Controller::_search_code(std::string code, search::SearchResult &result) {
           table_access_count++;
         }
         trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
-        trie->search(trie, c_code, code_length, rate_table_id, p_code_names, result);
+        trie->search(trie, c_code, code_length, rate_type, rate_table_id, p_code_names, result);
         {
           std::lock_guard<std::mutex> lock(access_tables_mutex);
           table_access_count--;
@@ -207,7 +210,7 @@ void Controller::_search_code(std::string code, search::SearchResult &result) {
   );
 }
 
-void Controller::search_code_name_rate_table(std::string code_name, unsigned int rate_table_id, search::SearchResult &result) {
+void Controller::search_code_name_rate_table(std::string code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
@@ -227,7 +230,7 @@ void Controller::search_code_name_rate_table(std::string code_name, unsigned int
     table_access_count++;
   }
   trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
-  trie->search(trie, code, code_length, rate_table_id, p_code_names, result);
+  trie->search(trie, code, code_length, rate_type, rate_table_id, p_code_names, result);
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);
     table_access_count--;
@@ -235,7 +238,7 @@ void Controller::search_code_name_rate_table(std::string code_name, unsigned int
   access_tables_holder.notify_all();
 }
 
-void Controller::search_rate_table(unsigned int rate_table_id, search::SearchResult &result) {
+void Controller::search_rate_table(unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
@@ -247,7 +250,7 @@ void Controller::search_rate_table(unsigned int rate_table_id, search::SearchRes
     table_access_count++;
   }
   trie::p_trie_t trie = (*tables_tries)[rate_table_id].get();
-  trie->total_search(trie, rate_table_id, p_code_names, result);
+  trie->total_search(trie, rate_type, rate_table_id, p_code_names, result);
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);
     table_access_count--;
@@ -255,7 +258,7 @@ void Controller::search_rate_table(unsigned int rate_table_id, search::SearchRes
   access_tables_holder.notify_all();
 }
 
-void Controller::search_all_codes(search::SearchResult &result) {
+void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
@@ -263,8 +266,7 @@ void Controller::search_all_codes(search::SearchResult &result) {
     [&](const tbb::blocked_range<size_t> &r)  {
       for (auto i = r.begin(); i != r.end(); ++i) {
         std::string code_name = (*code_names_index)[i];
-        std::cout << "Search code name: " << code_name << std::endl;
-        search_code_name(code_name, result);
+        search_code_name(code_name, rate_type, result);
       }
   });
 }
