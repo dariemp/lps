@@ -15,7 +15,9 @@ namespace ctrl {
 
   class Controller;
   typedef std::vector<unsigned int> rate_table_ids_t;
+  typedef std::vector<std::string> code_names_vector_t;
   typedef std::unique_ptr<rate_table_ids_t> uptr_rate_table_ids_t;
+  typedef std::unique_ptr<code_names_vector_t> uptr_code_names_vector_t;
   typedef std::unordered_map<unsigned int, trie::uptr_trie_t> table_tries_map_t;
   typedef std::unique_ptr<table_tries_map_t> uptr_table_tries_map_t;
   typedef std::unique_lock<std::mutex> mutex_unique_lock_t;
@@ -35,10 +37,12 @@ namespace ctrl {
       db::uptr_db_t database;
       db::p_conn_info_t conn_info;
       uptr_rate_table_ids_t rate_table_ids;
+      uptr_code_names_vector_t code_names_index;
       uptr_table_tries_map_t tables_tries;
       uptr_code_names_t code_names;
       uptr_codes_t codes;
       uptr_rate_table_ids_t new_rate_table_ids;
+      uptr_code_names_vector_t new_code_names_index;
       uptr_table_tries_map_t new_tables_tries;
       uptr_code_names_t new_code_names;
       uptr_codes_t new_codes;

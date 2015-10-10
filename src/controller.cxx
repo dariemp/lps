@@ -20,6 +20,7 @@ Controller::Controller(db::ConnectionInfo &conn_info,
   : conn_info(&conn_info), telnet_listen_port(telnet_listen_port), http_listen_port(http_listen_port) {
       reset_new_tables();
       updating_tables = false;
+      table_access_count = 0;
 }
 
 void Controller::reset_new_tables() {
@@ -27,6 +28,7 @@ void Controller::reset_new_tables() {
   new_tables_tries = uptr_table_tries_map_t(new table_tries_map_t());
   new_code_names = uptr_code_names_t(new code_names_t());
   new_codes = uptr_codes_t(new codes_t());
+  new_code_names_index = uptr_code_names_vector_t(new code_names_vector_t());
 }
 
 void Controller::update_rate_tables_tries() {
@@ -39,6 +41,7 @@ void Controller::update_rate_tables_tries() {
     tables_tries = std::move(new_tables_tries);
     code_names = std::move(new_code_names);
     codes = std::move(new_codes);
+    code_names_index = std::move(new_code_names_index);
     reset_new_tables();
     updating_tables = false;
     table_access_count = 0;
@@ -72,7 +75,7 @@ void Controller::create_table_tries() {
 void Controller::update_table_tries() {
   unsigned int refresh_minutes = database->get_refresh_minutes();
   while (true) {
-    insert_code_name_rate_table_db();
+    //insert_code_name_rate_table_db();
     time_t seconds = (refresh_minutes * 60) - (time(nullptr) - last_db_update);
     if (seconds <= 0) {
       seconds = 0;
@@ -93,7 +96,9 @@ void Controller::update_table_tries() {
 
 void Controller::insert_code_name_rate_table_db() {
   search::SearchResult result;
+  std::cout << "Searching all codes..." << std::endl;
   search_all_codes(result);
+  std::cout << "Updating database with rate data..." << std::endl;
   database->insert_code_name_rate_table_rate(result);
 }
 
@@ -143,8 +148,11 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
     }
     if (new_code_names->find(numeric_code) == new_code_names->end())
       (*new_code_names)[numeric_code] = code_name;
-    if (new_codes->find(code_name) == new_codes->end())
+    if (new_codes->find(code_name) == new_codes->end()) {
       (*new_codes)[code_name] = numeric_code;
+      new_code_names_index->push_back(code_name);
+    }
+
   }
   trie = (*new_tables_tries)[rate_table_id].get();
   size_t code_length = code.length();
@@ -251,26 +259,12 @@ void Controller::search_all_codes(search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
-  std::vector<std::pair<std::string, unsigned int>> code_name_rate_table;
-  for (auto i = codes->begin(); i != codes->end(); ++i)
-    for (auto j = tables_tries->begin(); j != tables_tries->end(); ++j)
-      code_name_rate_table.push_back(std::make_pair(i->first, j->first));
-  parallel_for (tbb::blocked_range<size_t>(0, code_name_rate_table.size()),
+  parallel_for (tbb::blocked_range<size_t>(0, code_names_index->size()),
     [&](const tbb::blocked_range<size_t> &r)  {
       for (auto i = r.begin(); i != r.end(); ++i) {
-        std::pair<std::string, unsigned int> pair = code_name_rate_table[i];
-        std::string code_name = pair.first;
-        unsigned int rate_table_id = pair.second;
-        {
-          std::lock_guard<std::mutex> lock(access_tables_mutex);
-          table_access_count++;
-        }
-        search_code_name_rate_table(code_name, rate_table_id, result);
-        {
-          std::lock_guard<std::mutex> lock(access_tables_mutex);
-          table_access_count--;
-        }
-        access_tables_holder.notify_all();
+        std::string code_name = (*code_names_index)[i];
+        std::cout << "Search code name: " << code_name << std::endl;
+        search_code_name(code_name, result);
       }
-    });
+  });
 }

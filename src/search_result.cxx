@@ -145,11 +145,15 @@ std::string SearchResult::to_json() {
       std::string future_effective_date;
       std::string future_end_date;
       convert_date(epoch_future_effective_date, future_effective_date);
-      convert_date(epoch_future_end_date, future_end_date);
       json += "\t\t\t\"future_max_rate\" : " + std::to_string(future_max_rate) + ",\n";
       json += "\t\t\t\"future_min_rate\" : " + std::to_string(future_min_rate)  + ",\n";
       json += "\t\t\t\"future_effective_date\" : \"" + future_effective_date + "\",\n";
-      json += "\t\t\t\"future_end_date\" : \"" + future_end_date + "\"\n";
+      if (epoch_future_end_date == -1)
+        json += "\t\t\t\"future_end_date\" : null\n";
+      else {
+        convert_date(epoch_future_end_date, future_end_date);
+        json += "\t\t\t\"future_end_date\" : \"" + future_end_date + "\"\n";
+      }
     }
     json += "\t\t}";
   }

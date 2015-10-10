@@ -33,7 +33,7 @@ void Telnet::run_server(unsigned int telnet_listen_port) {
   register_resource("search_code_name", search_code_name);
   register_resource("search_code_name_rate_table", search_code_name_rate_table);
   register_resource("search_rate_table", search_rate_table);
-  register_resource("search_all_codes", search_all_codes);
+  //register_resource("search_all_codes", search_all_codes);
   int telnet_socket, telnet_socket6;
   struct sockaddr_in addr, addr6, local;
   struct epoll_event ev;
