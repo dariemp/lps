@@ -9,7 +9,6 @@ void RestSearchCode::render(const http_request& request, http_response** respons
     std::string code = request.get_arg("code");
     std::string arg_rate_type = request.get_arg("rate_type");
     trie::rate_type_t rate_type = trie::to_rate_type_t(arg_rate_type);
-    std::cout << "Search code: " << code << ", rate_type: " << rate_type << "(" << arg_rate_type << ")" << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code(code, rate_type, result);
@@ -24,7 +23,6 @@ void RestSearchCodeName::render(const http_request& request, http_response** res
     std::string code_name = request.get_arg("code_name");
     std::string arg_rate_type = request.get_arg("rate_type");
     trie::rate_type_t rate_type = trie::to_rate_type_t(arg_rate_type);
-    std::cout << "Procesing code name: " << code_name << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code_name(code_name, rate_type, result);
@@ -40,7 +38,6 @@ void RestSearchCodeNameAndRateTable::render(const http_request& request, http_re
     std::string str_rate_table_id = request.get_arg("rate_table_id");
     std::string arg_rate_type = request.get_arg("rate_type");
     trie::rate_type_t rate_type = trie::to_rate_type_t(arg_rate_type);
-    std::cout << "Procesing code name: " << code_name << " and rate table id: " << str_rate_table_id << std::endl;
     unsigned int rate_table_id = std::stoul(str_rate_table_id);
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
@@ -57,7 +54,6 @@ void RestSearchRateTable::render(const http_request& request, http_response** re
     std::string str_rate_table_id = request.get_arg("rate_table_id");
     std::string arg_rate_type = request.get_arg("rate_type");
     trie::rate_type_t rate_type = trie::to_rate_type_t(arg_rate_type);
-    std::cout << "Procesing rate table id: " << str_rate_table_id << std::endl;
     unsigned int rate_table_id = std::stoul(str_rate_table_id);
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
@@ -70,7 +66,6 @@ void RestSearchRateTable::render(const http_request& request, http_response** re
 
 void RestSearchAllCodeNames::render(const http_request& request, http_response** response) {
   try {
-    std::cout << "Procesing all codenames" << std::endl;
     std::string arg_rate_type = request.get_arg("rate_type");
     trie::rate_type_t rate_type = trie::to_rate_type_t(arg_rate_type);
     search::SearchResult result;
