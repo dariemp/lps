@@ -67,7 +67,7 @@ void Controller::start_workflow() {
 
 void Controller::create_table_tries() {
   database = db::uptr_db_t(new db::DB(*conn_info));
-  last_db_update = time(nullptr);
+  reference_time = time(nullptr);
   database->get_new_records();
   update_rate_tables_tries();
 }
@@ -76,7 +76,7 @@ void Controller::update_table_tries() {
   unsigned int refresh_minutes = database->get_refresh_minutes();
   while (true) {
     //insert_code_name_rate_table_db();
-    time_t seconds = (refresh_minutes * 60) - (time(nullptr) - last_db_update);
+    time_t seconds = (refresh_minutes * 60) - (time(nullptr) - reference_time);
     if (seconds <= 0) {
       seconds = 0;
       std::cout << "Next update will be now since it took too long to load from database." << std::endl;
@@ -88,7 +88,7 @@ void Controller::update_table_tries() {
     else
       std::cout << "Next update from the database will be in " << seconds << " seconds." << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(seconds));
-    last_db_update = time(nullptr);
+    reference_time = time(nullptr);
     database->get_new_records();
     update_rate_tables_tries();
   }
@@ -160,7 +160,7 @@ void Controller::insert_new_rate_data(unsigned int rate_table_id,
   trie = (*new_tables_tries)[rate_table_id].get();
   size_t code_length = code.length();
   const char *c_code = code.c_str();
-  trie::Trie::insert(trie, c_code, code_length, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date);
+  trie::Trie::insert(trie, c_code, code_length, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date, reference_time);
 }
 
 void Controller::search_code(std::string code, trie::rate_type_t rate_type, search::SearchResult &result) {

@@ -4,12 +4,13 @@
 
 using namespace search;
 
-SearchResultElement::SearchResultElement(unsigned long long code, std::string code_name, unsigned int rate_table_id,
+SearchResultElement::SearchResultElement(unsigned long long code, std::string code_name, unsigned int rate_table_id, trie::rate_type_t rate_type,
       double current_min_rate, double current_max_rate, double future_min_rate, double future_max_rate,
       time_t effective_date, time_t end_date, time_t future_effective_date, time_t future_end_date)
         : code(code),
           code_name(code_name),
           rate_table_id(rate_table_id),
+          rate_type(rate_type),
           current_min_rate(current_min_rate),
           current_max_rate(current_max_rate),
           future_min_rate(future_min_rate),
@@ -29,6 +30,10 @@ std::string SearchResultElement::get_code_name() {
 
 unsigned int SearchResultElement::get_rate_table_id() {
   return rate_table_id;
+}
+
+trie::rate_type_t SearchResultElement::get_rate_type() {
+  return rate_type;
 }
 
 double SearchResultElement::get_current_min_rate() {
@@ -70,6 +75,7 @@ SearchResultElement* SearchResult::operator [](size_t index) const {
 void SearchResult::insert(unsigned long long code,
                           std::string code_name,
                           unsigned int rate_table_id,
+                          trie::rate_type_t rate_type,
                           double current_min_rate,
                           double current_max_rate,
                           double future_min_rate,
@@ -81,7 +87,7 @@ void SearchResult::insert(unsigned long long code,
   tbb::mutex::scoped_lock lock(search_insertion_mutex);
   if (data.empty())
     data.emplace_back(
-      new SearchResultElement(code, code_name, rate_table_id, current_min_rate, current_max_rate,
+      new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
                               future_effective_date, future_end_date));
   size_t i = 0;
@@ -92,13 +98,13 @@ void SearchResult::insert(unsigned long long code,
         code != data[i]->get_code() ||
         code_name != data[i]->get_code_name())
       data.emplace(data.begin() + i,
-                   new SearchResultElement(code, code_name, rate_table_id, current_min_rate, current_max_rate,
+                   new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                                            future_min_rate, future_max_rate, effective_date, end_date,
                                            future_effective_date, future_end_date));
   }
   else
     data.emplace_back(
-      new SearchResultElement(code, code_name, rate_table_id, current_min_rate, current_max_rate,
+      new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
                               future_effective_date, future_end_date));
 }
@@ -128,10 +134,16 @@ std::string SearchResult::to_json() {
     json += "\t\t\t\"code\" : " + std::to_string((*it)->get_code()) + ",\n";
     json += "\t\t\t\"code_name\" : \"" + (*it)->get_code_name() + "\",\n";
     json += "\t\t\t\"rate_table_id\" : " + std::to_string((*it)->get_rate_table_id()) + ",\n";
+    json += "\t\t\t\"rate_type\" : \"" + trie::rate_type_to_string((*it)->get_rate_type()) + "\",\n";
     json += "\t\t\t\"current_max_rate\" : " + std::to_string((*it)->get_current_max_rate()) + ",\n";
     json += "\t\t\t\"current_min_rate\" : " + std::to_string((*it)->get_current_min_rate()) + ",\n";
     json += "\t\t\t\"effective_date\" : \"" + effective_date + "\",\n";
-    json += "\t\t\t\"end_date\" : \"" + end_date + "\",\n";
+    if (epoch_end_date == -1)
+      json += "\t\t\t\"end_date\" : null\n";
+    else {
+      convert_date(epoch_end_date, end_date);
+      json += "\t\t\t\"end_date\" : \"" + end_date + "\"\n";
+    }
     if (future_max_rate == -1) {
       json += "\t\t\t\"future_max_rate\" : null,\n";
       json += "\t\t\t\"future_min_rate\" : null,\n";
@@ -169,15 +181,20 @@ std::string SearchResult::to_text_table() {
     std::string effective_date;
     std::string end_date;
     convert_date(epoch_effective_date, effective_date);
-    convert_date(epoch_end_date, end_date);
     double future_max_rate = (*it)->get_future_max_rate();
     table += "code                  : " + std::to_string((*it)->get_code()) + "\n";
     table += "code_name             : " + (*it)->get_code_name() + "\n";
     table += "rate_table_id         : " + std::to_string((*it)->get_rate_table_id()) + "\n";
+    table += "rate_type             : " + trie::rate_type_to_string((*it)->get_rate_type()) + "\n";
     table += "current_max_rate      : " + std::to_string((*it)->get_current_max_rate()) + "\n";
     table += "current_min_rate      : " + std::to_string((*it)->get_current_min_rate()) + "\n";
     table += "effective_date        : " + effective_date + "\n";
-    table += "end_date              : " + end_date + "\n";
+    if (epoch_end_date == -1)
+      table += "end_date              : -\n";
+    else {
+      convert_date(epoch_end_date, end_date);
+      table += "end_date              : " + end_date + "\n";
+    }
     if (future_max_rate == -1) {
       table += "future_max_rate       : -\n";
       table += "future_min_rate       : -\n";
@@ -191,11 +208,15 @@ std::string SearchResult::to_text_table() {
       std::string future_effective_date;
       std::string future_end_date;
       convert_date(epoch_future_effective_date, future_effective_date);
-      convert_date(epoch_future_end_date, future_end_date);
       table += "future_max_rate       : " + std::to_string(future_max_rate) + "\n";
       table += "future_min_rate       : " + std::to_string(future_min_rate)  + "\n";
       table += "future_effective_date : " + future_effective_date + "\n";
-      table += "future_end_date       : " + future_end_date + "\n";
+      if (epoch_future_end_date == -1)
+        table += "future_end_date       : -\n";
+      else {
+        convert_date(epoch_future_end_date, future_end_date);
+        table += "future_end_date       : " + future_end_date + "\n";
+      }
     }
     table += "\n";
   }

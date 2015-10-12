@@ -42,7 +42,6 @@ std::string TelnetSearchCode::process_command(std::string input) {
     unsigned long long numeric_code = std::stoull(code);
     if (std::to_string(numeric_code) != code)
       return "Invaid code.\n";
-    std::cout << "Processing code: " << code << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code(code, rate_type, result);
@@ -63,7 +62,6 @@ std::string TelnetSearchCodeName::process_command(std::string input) {
       std::string arg_rate_type = args[1];
       rate_type = trie::to_rate_type_t(arg_rate_type);
     }
-    std::cout << "Processing code name: " << code_name << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code_name(code_name, rate_type, result);
@@ -88,7 +86,6 @@ std::string TelnetSearchCodeNameAndRateTable::process_command(std::string input)
     unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
     if (std::to_string(numeric_rate_table_id) != rate_table_id)
       return "Invalid rate table ID.\n";
-    std::cout << "Processing code name: " << code_name << " and rate table ID: " << rate_table_id << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, rate_type, result);
@@ -112,7 +109,6 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
     unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
     if (std::to_string(numeric_rate_table_id) != rate_table_id)
       return "Invalid rate table ID.\n";
-    std::cout << "Processing rate table ID: " << rate_table_id << std::endl;
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_rate_table(numeric_rate_table_id, rate_type, result);

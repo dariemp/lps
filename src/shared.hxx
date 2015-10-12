@@ -22,6 +22,7 @@ namespace trie {
   };
 
   rate_type_t to_rate_type_t(std::string rate_type);
+  std::string rate_type_to_string(rate_type_t rate_type);
 }
 
 #endif

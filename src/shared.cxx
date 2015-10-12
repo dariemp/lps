@@ -15,3 +15,16 @@ rate_type_t trie::to_rate_type_t(std::string rate_type){
   else
     throw RestRequestArgException();
 }
+
+std::string trie::rate_type_to_string(rate_type_t rate_type) {
+  if (rate_type == rate_type_t::RATE_TYPE_INTER)
+    return "inter";
+  else if (rate_type == rate_type_t::RATE_TYPE_INTRA)
+    return "intra";
+  else if (rate_type == rate_type_t::RATE_TYPE_LOCAL)
+    return "local";
+  else if (rate_type == rate_type_t::RATE_TYPE_DEFAULT)
+    return "default";
+  else
+    throw RestRequestArgException();
+}

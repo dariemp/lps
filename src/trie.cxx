@@ -6,112 +6,222 @@
 using namespace trie;
 
 TrieData::TrieData()
-  : default_rate(-1),
-    inter_rate(-1),
-    intra_rate(-1),
-    local_rate(-1),
-    default_effective_date(-1),
-    default_end_date(-1),
-    inter_effective_date(-1),
-    inter_end_date(-1),
-    intra_effective_date(-1),
-    intra_end_date(-1),
-    local_effective_date(-1),
-    local_end_date(-1) {}
+  : current_default_rate(-1),
+    current_inter_rate(-1),
+    current_intra_rate(-1),
+    current_local_rate(-1),
+    current_default_effective_date(-1),
+    current_default_end_date(-1),
+    current_inter_effective_date(-1),
+    current_inter_end_date(-1),
+    current_intra_effective_date(-1),
+    current_intra_end_date(-1),
+    current_local_effective_date(-1),
+    current_local_end_date(-1),
+    future_default_rate(-1),
+    future_inter_rate(-1),
+    future_intra_rate(-1),
+    future_local_rate(-1),
+    future_default_effective_date(-1),
+    future_default_end_date(-1),
+    future_inter_effective_date(-1),
+    future_inter_end_date(-1),
+    future_intra_effective_date(-1),
+    future_intra_end_date(-1),
+    future_local_effective_date(-1),
+    future_local_end_date(-1) {}
 
-double TrieData::get_rate(rate_type_t rate_type) {
+double TrieData::get_current_rate(rate_type_t rate_type) {
   switch (rate_type) {
     case RATE_TYPE_INTER:
-      return inter_rate;
+      return current_inter_rate;
       break;
     case RATE_TYPE_INTRA:
-      return intra_rate;
+      return current_intra_rate;
       break;
     case RATE_TYPE_LOCAL:
-      return local_rate;
+      return current_local_rate;
       break;
     default:
-      return default_rate;
+      return current_default_rate;
   }
 }
 
-time_t TrieData::get_effective_date(rate_type_t rate_type) {
+time_t TrieData::get_current_effective_date(rate_type_t rate_type) {
   switch (rate_type) {
     case RATE_TYPE_INTER:
-      return inter_effective_date;
+      return current_inter_effective_date;
       break;
     case RATE_TYPE_INTRA:
-      return intra_effective_date;
+      return current_intra_effective_date;
       break;
     case RATE_TYPE_LOCAL:
-      return local_effective_date;
+      return current_local_effective_date;
       break;
     default:
-      return default_effective_date;
+      return current_default_effective_date;
   }
 }
 
-time_t TrieData::get_end_date(rate_type_t rate_type) {
+time_t TrieData::get_current_end_date(rate_type_t rate_type) {
   switch (rate_type) {
     case RATE_TYPE_INTER:
-      return inter_end_date;
+      return current_inter_end_date;
       break;
     case RATE_TYPE_INTRA:
-      return intra_end_date;
+      return current_intra_end_date;
       break;
     case RATE_TYPE_LOCAL:
-      return local_end_date;
+      return current_local_end_date;
       break;
     default:
-      return default_end_date;
+      return current_default_end_date;
   }
 }
 
-void TrieData::set_rate(rate_type_t rate_type, double rate) {
+void TrieData::set_current_rate(rate_type_t rate_type, double rate) {
   switch (rate_type) {
     case RATE_TYPE_INTER:
-      inter_rate = rate;
+      current_inter_rate = rate;
       break;
     case RATE_TYPE_INTRA:
-      intra_rate = rate;
+      current_intra_rate = rate;
       break;
     case RATE_TYPE_LOCAL:
-      local_rate = rate;
+      current_local_rate = rate;
       break;
     default:
-      default_rate = rate;
+      current_default_rate = rate;
   }
 }
 
-void TrieData::set_effective_date(rate_type_t rate_type, time_t effective_date) {
+void TrieData::set_current_effective_date(rate_type_t rate_type, time_t effective_date) {
   switch (rate_type) {
     case RATE_TYPE_INTER:
-      inter_effective_date = effective_date;
+      current_inter_effective_date = effective_date;
       break;
     case RATE_TYPE_INTRA:
-      intra_effective_date = effective_date;
+      current_intra_effective_date = effective_date;
       break;
     case RATE_TYPE_LOCAL:
-      local_effective_date = effective_date;
+      current_local_effective_date = effective_date;
       break;
     default:
-      default_effective_date = effective_date;
+      current_default_effective_date = effective_date;
   }
 }
 
-void TrieData::set_end_date(rate_type_t rate_type, time_t end_date) {
+void TrieData::set_current_end_date(rate_type_t rate_type, time_t end_date) {
   switch (rate_type) {
     case RATE_TYPE_INTER:
-      inter_end_date = end_date;
+      current_inter_end_date = end_date;
       break;
     case RATE_TYPE_INTRA:
-      intra_end_date = end_date;
+      current_intra_end_date = end_date;
       break;
     case RATE_TYPE_LOCAL:
-      local_end_date = end_date;
+      current_local_end_date = end_date;
       break;
     default:
-      default_end_date = end_date;
+      current_default_end_date = end_date;
+  }
+}
+
+
+
+double TrieData::get_future_rate(rate_type_t rate_type) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      return future_inter_rate;
+      break;
+    case RATE_TYPE_INTRA:
+      return future_intra_rate;
+      break;
+    case RATE_TYPE_LOCAL:
+      return future_local_rate;
+      break;
+    default:
+      return future_default_rate;
+  }
+}
+
+time_t TrieData::get_future_effective_date(rate_type_t rate_type) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      return future_inter_effective_date;
+      break;
+    case RATE_TYPE_INTRA:
+      return future_intra_effective_date;
+      break;
+    case RATE_TYPE_LOCAL:
+      return future_local_effective_date;
+      break;
+    default:
+      return future_default_effective_date;
+  }
+}
+
+time_t TrieData::get_future_end_date(rate_type_t rate_type) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      return future_inter_end_date;
+      break;
+    case RATE_TYPE_INTRA:
+      return future_intra_end_date;
+      break;
+    case RATE_TYPE_LOCAL:
+      return future_local_end_date;
+      break;
+    default:
+      return future_default_end_date;
+  }
+}
+
+void TrieData::set_future_rate(rate_type_t rate_type, double rate) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      future_inter_rate = rate;
+      break;
+    case RATE_TYPE_INTRA:
+      future_intra_rate = rate;
+      break;
+    case RATE_TYPE_LOCAL:
+      future_local_rate = rate;
+      break;
+    default:
+      future_default_rate = rate;
+  }
+}
+
+void TrieData::set_future_effective_date(rate_type_t rate_type, time_t effective_date) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      future_inter_effective_date = effective_date;
+      break;
+    case RATE_TYPE_INTRA:
+      future_intra_effective_date = effective_date;
+      break;
+    case RATE_TYPE_LOCAL:
+      future_local_effective_date = effective_date;
+      break;
+    default:
+      future_default_effective_date = effective_date;
+  }
+}
+
+void TrieData::set_future_end_date(rate_type_t rate_type, time_t end_date) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      future_inter_end_date = end_date;
+      break;
+    case RATE_TYPE_INTRA:
+      future_intra_end_date = end_date;
+      break;
+    case RATE_TYPE_LOCAL:
+      future_local_end_date = end_date;
+      break;
+    default:
+      future_default_end_date = end_date;
   }
 }
 
@@ -125,10 +235,16 @@ p_trie_data_t Trie::get_data() {
   return &data;
 }
 
-void Trie::set_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date) {
-  data.set_rate(rate_type, rate);
-  data.set_effective_date(rate_type, effective_date);
-  data.set_end_date(rate_type, end_date);
+void Trie::set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date) {
+  data.set_current_rate(rate_type, rate);
+  data.set_current_effective_date(rate_type, effective_date);
+  data.set_current_end_date(rate_type, end_date);
+}
+
+void Trie::set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date) {
+  data.set_future_rate(rate_type, rate);
+  data.set_future_effective_date(rate_type, effective_date);
+  data.set_future_end_date(rate_type, end_date);
 }
 
 p_trie_t Trie::get_child(unsigned char index) {
@@ -157,10 +273,11 @@ p_trie_t Trie::insert_child(unsigned char index) {
 /**
     Inserts rate data in the prefix tree at the correct prefix location
 */
-void Trie::insert(const p_trie_t trie, const char *prefix, size_t prefix_length, double default_rate, double inter_rate, double intra_rate, double local_rate, time_t effective_date, time_t end_date) {
+void Trie::insert(const p_trie_t trie, const char *prefix, size_t prefix_length, double default_rate, double inter_rate, double intra_rate, double local_rate, time_t effective_date, time_t end_date, time_t reference_time) {
   tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
   if (prefix_length < 0)
     throw TrieInvalidInsertionException();
+  std::string original_prefix = std::string(prefix);
   p_trie_t current_trie = trie;
   while (prefix_length > 0) {
     unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
@@ -174,9 +291,8 @@ void Trie::insert(const p_trie_t trie, const char *prefix, size_t prefix_length,
   p_trie_data_t trie_data = current_trie->get_data();
   for (int i = RATE_TYPE_DEFAULT; i <= RATE_TYPE_LOCAL; i++) {
     rate_type_t rate_type = (rate_type_t)i;
-    double old_rate = trie_data->get_rate(rate_type);
-    time_t old_effective_date = trie_data->get_effective_date(rate_type);
-    time_t old_end_date = trie_data->get_end_date(rate_type);
+    time_t old_current_effective_date = trie_data->get_current_effective_date(rate_type);
+    time_t old_future_effective_date = trie_data->get_future_effective_date(rate_type);
     double rate;
     switch (rate_type) {
       case RATE_TYPE_INTER:
@@ -195,9 +311,12 @@ void Trie::insert(const p_trie_t trie, const char *prefix, size_t prefix_length,
         continue;
     }
     if (rate == -1) continue;  //Don't update rate data if it is inexistent
-    if ( old_rate == -1 || (old_end_date == -1 &&  end_date != -1) ||
-        (old_end_date != -1 &&  end_date != -1 && effective_date > old_effective_date))
-      current_trie->set_data(rate_type, rate, effective_date, end_date);
+    if ( effective_date <= reference_time && effective_date > old_current_effective_date &&
+        (end_date == -1 || end_date >= reference_time))
+      current_trie->set_current_data(rate_type, rate, effective_date, end_date);
+    if ( effective_date > reference_time &&
+        (old_future_effective_date == -1 || effective_date < old_future_effective_date))
+      current_trie->set_future_data(rate_type, rate, effective_date, end_date);
   }
 }
 
@@ -214,8 +333,8 @@ void Trie::search(const p_trie_t trie, const char *prefix, size_t prefix_length,
   double current_max_rate = -1;
   double future_min_rate = -1;
   double future_max_rate = -1;
-  time_t effective_date;
-  time_t end_date;
+  time_t current_effective_date;
+  time_t current_end_date;
   time_t future_effective_date;
   time_t future_end_date;
   while (prefix_length > 0) {
@@ -224,28 +343,27 @@ void Trie::search(const p_trie_t trie, const char *prefix, size_t prefix_length,
       current_trie = current_trie->get_child(child_index);
       current_code =  current_code * 10 + child_index;
       p_trie_data_t data = current_trie->get_data();
-      double data_rate = data->get_rate(rate_type);
-      time_t data_effective_date = data->get_effective_date(rate_type);
-      time_t data_end_date = data->get_end_date(rate_type);
-      if (data_rate != -1) {
-        if (data_end_date == -1) {
-          if (future_min_rate == -1 || data_rate < future_min_rate)
-            future_min_rate = data_rate;
-          if (future_max_rate == -1 || data_rate > future_max_rate) {
-            future_max_rate = data_rate;
-            future_effective_date = data_effective_date;
-            future_end_date = data_end_date;
-          }
+      double data_current_rate = data->get_current_rate(rate_type);
+      time_t data_current_effective_date = data->get_current_effective_date(rate_type);
+      time_t data_current_end_date = data->get_current_end_date(rate_type);
+      double data_future_rate = data->get_future_rate(rate_type);
+      time_t data_future_effective_date = data->get_future_effective_date(rate_type);
+      time_t data_future_end_date = data->get_future_end_date(rate_type);
+      if (data_current_rate != -1) {
+        if (current_min_rate == -1 || data_current_rate < current_min_rate)
+          current_min_rate = data_current_rate;
+        if (current_max_rate == -1 || data_current_rate > current_max_rate) {
+          code = current_code;
+          current_max_rate = data_current_rate;
+          current_effective_date = data_current_effective_date;
+          current_end_date = data_current_end_date;
         }
-        else {
-          if (current_min_rate == -1 || data_rate < current_min_rate)
-            current_min_rate = data_rate;
-          if (current_max_rate == -1 || data_rate > current_max_rate) {
-            code = current_code;
-            current_max_rate = data_rate;
-            effective_date = data_effective_date;
-            end_date = data_end_date;
-          }
+        if (future_min_rate == -1 || data_future_rate < future_min_rate)
+          future_min_rate = data_future_rate;
+        if (future_max_rate == -1 || data_future_rate > future_max_rate) {
+          future_max_rate = data_future_rate;
+          future_effective_date = data_future_effective_date;
+          future_end_date = data_future_end_date;
         }
       }
       prefix++;
@@ -258,12 +376,13 @@ void Trie::search(const p_trie_t trie, const char *prefix, size_t prefix_length,
     search_result.insert(code,
                          (*code_names)[code],
                          rate_table_id,
+                         rate_type,
                          current_min_rate,
                          current_max_rate,
                          future_min_rate,
                          future_max_rate,
-                         effective_date,
-                         end_date,
+                         current_effective_date,
+                         current_end_date,
                          future_effective_date,
                          future_end_date);
 }
@@ -327,6 +446,7 @@ void Trie::total_search(const p_trie_t trie, rate_type_t rate_type, unsigned int
     search_result.insert(code,
                          (*code_names)[code],
                          rate_table_id,
+                         rate_type,
                          current_min_rate,
                          current_max_rate,
                          future_min_rate,
@@ -345,35 +465,34 @@ void Trie::total_search_update_vars(const p_trie_t &current_trie,
                                     double &current_max_rate,
                                     double &future_min_rate,
                                     double &future_max_rate,
-                                    time_t &effective_date,
-                                    time_t &end_date,
+                                    time_t &current_effective_date,
+                                    time_t &current_end_date,
                                     time_t &future_effective_date,
                                     time_t &future_end_date) {
   p_trie_data_t data = current_trie->get_data();
-  double data_rate = data->get_rate(rate_type);
-  time_t data_effective_date = data->get_effective_date(rate_type);
-  time_t data_end_date = data->get_end_date(rate_type);
-  if (data_rate != -1) {
-    if (data_end_date == -1) {
-      if (future_min_rate == -1 || data_rate < future_min_rate)
-        future_min_rate = data_rate;
-      if (future_max_rate == -1 || data_rate > future_max_rate) {
-        future_max_rate = data_rate;
-        future_effective_date = data_effective_date;
-        future_end_date = data_end_date;
-      }
+  double data_current_rate = data->get_current_rate(rate_type);
+  time_t data_current_effective_date = data->get_current_effective_date(rate_type);
+  time_t data_current_end_date = data->get_current_end_date(rate_type);
+  double data_future_rate = data->get_future_rate(rate_type);
+  time_t data_future_effective_date = data->get_future_effective_date(rate_type);
+  time_t data_future_end_date = data->get_future_end_date(rate_type);
+  if (data_current_rate != -1) {
+    if (current_min_rate == -1 || data_current_rate < current_min_rate)
+      current_min_rate = data_current_rate;
+    if (current_max_rate == -1 || data_current_rate > current_max_rate) {
+      code = 0;
+      for (auto it = nodes.begin(); it != nodes.end(); ++it)
+        code = code * 10 + (*it)->child_index;
+      current_max_rate = data_current_rate;
+      current_effective_date = data_current_effective_date;
+      current_end_date = data_current_end_date;
     }
-    else {
-      if (current_min_rate == -1 || data_rate < current_min_rate)
-        current_min_rate = data_rate;
-      if (current_max_rate == -1 || data_rate > current_max_rate) {
-        code = 0;
-        for (auto it = nodes.begin(); it != nodes.end(); ++it)
-          code = code * 10 + (*it)->child_index;
-        current_max_rate = data_rate;
-        effective_date = data_effective_date;
-        end_date = data_end_date;
-      }
+    if (future_min_rate == -1 || data_future_rate < future_min_rate)
+      future_min_rate = data_future_rate;
+    if (future_max_rate == -1 || data_future_rate > future_max_rate) {
+      future_max_rate = data_future_rate;
+      future_effective_date = data_future_effective_date;
+      future_end_date = data_future_end_date;
     }
   }
 }

@@ -1,6 +1,7 @@
 #ifndef SEARCH_RESULT_H
 #define SEARCH_RESULT_H
 
+#include "shared.hxx"
 #include <memory>
 #include <vector>
 #include <utility>
@@ -16,6 +17,7 @@ namespace search {
       unsigned long long code;
       std::string code_name;
       unsigned int rate_table_id;
+      trie::rate_type_t rate_type;
       double current_min_rate;
       double current_max_rate;
       double future_min_rate;
@@ -28,6 +30,7 @@ namespace search {
       SearchResultElement(unsigned long long code,
                           std::string code_name,
                           unsigned int rate_table_id,
+                          trie::rate_type_t rate_type,
                           double current_min_rate,
                           double current_max_rate,
                           double future_min_rate,
@@ -39,6 +42,7 @@ namespace search {
       unsigned long long get_code();
       std::string get_code_name();
       unsigned int get_rate_table_id();
+      trie::rate_type_t get_rate_type();
       double get_current_min_rate();
       double get_current_max_rate();
       double get_future_min_rate();
@@ -59,6 +63,7 @@ namespace search {
       void insert(unsigned long long code,
                   std::string code_name,
                   unsigned int rate_table_id,
+                  trie::rate_type_t rate_type,
                   double current_min_rate,
                   double current_max_rate,
                   double future_min_rate,
