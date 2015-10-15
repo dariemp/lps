@@ -10,6 +10,7 @@ typedef std::vector<std::string> args_t;
 
 class TelnetResource {
   public:
+    virtual ~TelnetResource();
     virtual std::string process_command(std::string input) = 0;
     args_t get_args(std::string input);
 

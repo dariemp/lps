@@ -2,10 +2,10 @@
 #define EXCEPTIONS_H
 #include <exception>
 
-class TrieInvalidInsertionException : public std::exception {
+class TrieInvalidPrefixLengthException : public std::exception {
   virtual const char* what() const throw()
     {
-      return "Cannot do insertion of and empty code in a prefix tree";
+      return "Cannot do insertion or search of an empty code in a prefix tree";
     }
 };
 
@@ -30,13 +30,19 @@ class TrieMissingChildException : public std::exception {
     }
 };
 
+class TrieWrongRateTableException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Internal error: traying to insert data in the wrong rate table";
+    }
+};
+
 class TrieChildAlreadyExistsException : public std::exception {
   virtual const char* what() const throw()
     {
       return "Child prefix tree already exists, please edit instead of insert";
     }
 };
-
 
 class TrieCollisionSameRateException : public std::exception {
   virtual const char* what() const throw()

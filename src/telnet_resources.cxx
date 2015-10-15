@@ -28,6 +28,8 @@ args_t TelnetResource::get_args(std::string input) {
   return empty_args;
 }
 
+TelnetResource::~TelnetResource() {}
+
 std::string TelnetSearchCode::process_command(std::string input) {
   try {
     args_t args = get_args(input);
@@ -83,12 +85,9 @@ std::string TelnetSearchCodeNameAndRateTable::process_command(std::string input)
       std::string arg_rate_type = args[2];
       rate_type = trie::to_rate_type_t(arg_rate_type);
     }
-    unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
-    if (std::to_string(numeric_rate_table_id) != rate_table_id)
-      return "Invalid rate table ID.\n";
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_code_name_rate_table(code_name, numeric_rate_table_id, rate_type, result);
+    p_controller->search_code_name_rate_table(code_name, rate_table_id, rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";
@@ -106,12 +105,9 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
       std::string arg_rate_type = args[1];
       rate_type = trie::to_rate_type_t(arg_rate_type);
     }
-    unsigned int numeric_rate_table_id = std::stoull(rate_table_id);
-    if (std::to_string(numeric_rate_table_id) != rate_table_id)
-      return "Invalid rate table ID.\n";
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
-    p_controller->search_rate_table(numeric_rate_table_id, rate_type, result);
+    p_controller->search_rate_table(rate_table_id, rate_type, result);
     return result.to_text_table();
   } catch (std::exception &e) {
     return "Error";

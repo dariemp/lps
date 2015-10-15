@@ -3,7 +3,6 @@
 
 #include <tbb/tbb.h>
 #include <pqxx/pqxx>
-#include <memory>
 #include <vector>
 #include "search_result.hxx"
 
@@ -11,11 +10,10 @@ namespace db {
 
   class ConnectionInfo;
   class DB;
-  typedef std::unique_ptr<ConnectionInfo> uptr_conn_info_t;
   typedef ConnectionInfo* p_conn_info_t;
-  typedef std::unique_ptr<DB> uptr_db_t;
-  typedef std::unique_ptr<pqxx::connection> uptr_connection_t;
-  typedef  std::vector<uptr_connection_t> connections_t;
+  typedef DB* p_db_t;
+  typedef pqxx::connection* p_connection_t;
+  typedef  std::vector<p_connection_t> connections_t;
 
   class ConnectionInfo {
     public:
@@ -38,10 +36,12 @@ namespace db {
       p_conn_info_t p_conn_info;
       connections_t connections;
       unsigned int get_first_rate_id(bool from_beginning=true);
-      void consolidate_results(pqxx::result result);
+      void query_database(unsigned int conn_index, const std::string chunk_size, int first_rate_id, unsigned int last_rate_id);
+      void consolidate_results(const pqxx::result &result);
     public:
-      unsigned int get_refresh_minutes();
       DB(ConnectionInfo &conn_info);
+      ~DB();
+      unsigned int get_refresh_minutes();
       void get_new_records();
       void insert_code_name_rate_table_rate(const search::SearchResult &search_result);
   };

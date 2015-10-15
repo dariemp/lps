@@ -9,18 +9,28 @@
 using namespace telnet;
 
 Telnet::Telnet() {
-  telnet_resources = uptr_telnet_resources_t(new telnet_resources_t());
-  telnet_ctxs = uptr_telnet_ctxs_t(new telnet_ctxs_t());
-  outputs = uptr_outputs_t(new outputs_t());
+  telnet_resources = new telnet_resources_t();
+  telnet_ctxs = new telnet_ctxs_t();
+  outputs = new outputs_t();
 }
 
 Telnet::~Telnet() {
-  for (auto it = telnet_ctxs->begin(); it != telnet_ctxs->end(); ++it)
+  for (auto it = telnet_ctxs->begin(); it != telnet_ctxs->end(); ++it) {
     close(it->first);
+    telnet_free(it->second);
+  }
+  telnet_ctxs->clear();
+  delete telnet_ctxs;
+  for (auto it = outputs->begin(); it != outputs->end(); ++it)
+    delete it->second;
+  delete outputs;
+  for (auto it = telnet_resources->begin(); it != telnet_resources->end(); ++it)
+    delete it->second;
+  delete telnet_resources;
 }
 
 void Telnet::register_resource(const std::string cmd, TelnetResource &resource) {
-  (*telnet_resources)[cmd] = std::unique_ptr<TelnetResource>(&resource);
+  (*telnet_resources)[cmd] = &resource;
 }
 
 void Telnet::run_server(unsigned int telnet_listen_port) {
@@ -163,9 +173,9 @@ void Telnet::process_read(int socket_fd) {
 }
 
 void Telnet::process_write(int socket_fd) {
-  output_queue_t* output_queue = (*outputs)[socket_fd].get();
+  output_queue_t* output_queue = (*outputs)[socket_fd];
   while (!output_queue->empty()) {
-    std::string* output = output_queue->front().get();
+    std::string* output = output_queue->front();
     int bytes_written, bytes_to_send = output->size();
     const char* data = output->c_str();
     while ((bytes_written = send(socket_fd, data, bytes_to_send, 0)) < bytes_to_send) {
@@ -173,6 +183,7 @@ void Telnet::process_write(int socket_fd) {
       data += bytes_written;
     }
     output_queue->pop();
+    delete output;
   }
   epoll_event ev;
   ev.events = EPOLLIN | EPOLLET;
@@ -191,13 +202,15 @@ typedef struct {
 void Telnet::telnet_event_handler(telnet_t *telnet, telnet_event_t *event, void *user_data) {
   user_data_t* data = (user_data_t*)user_data;
   int socket_fd = data->socket_fd;
+  p_output_queue_t output_queue;
+  std::string* output;
   switch (event->type) {
   	/* data received */
   	case TELNET_EV_DATA:
-      if (outputs->find(socket_fd) == outputs->end())
+      /*if (outputs->find(socket_fd) == outputs->end())
         (*outputs)[socket_fd] = uptr_output_queue_t(new output_queue_t());
-      else
-        (*outputs)[socket_fd].reset(new output_queue_t());
+      else*/
+        (*outputs)[socket_fd] = new output_queue_t();
   		process_command(telnet, event->data.buffer, event->data.size);
   		break;
   	/* data must be sent */
@@ -221,6 +234,14 @@ void Telnet::telnet_event_handler(telnet_t *telnet, telnet_event_t *event, void 
   	/* error */
   	case TELNET_EV_ERROR:
   		close(socket_fd);
+      telnet_free((*telnet_ctxs)[socket_fd]);
+      output_queue = (*outputs)[socket_fd];
+      while (!output_queue->empty()) {
+        output = output_queue->front();
+        output_queue->pop();
+        delete output;
+      }
+      delete output_queue;
       telnet_ctxs->erase(socket_fd);
       outputs->erase(socket_fd);
   		break;

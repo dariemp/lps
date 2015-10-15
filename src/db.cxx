@@ -15,7 +15,7 @@ DB::DB(ConnectionInfo &conn_info) {
   if (conn_info.conn_count < 1)
     throw DBNoConnectionsException();
   std::cout << "Connecting to database with " << conn_info.conn_count << " connections... ";
-  parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count),
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count),
       [=](const tbb::blocked_range<size_t>& r) {
           for (size_t i = r.begin(); i != r.end(); ++i) {
             add_conn_mutex.lock();
@@ -26,6 +26,12 @@ DB::DB(ConnectionInfo &conn_info) {
   std::cout << "done." << std::endl;
 }
 
+DB::~DB() {
+  for (size_t i = 0; i < connections.size(); ++i)
+    delete connections[i];
+  connections.clear();
+}
+
 unsigned int DB::get_refresh_minutes() {
   return p_conn_info->refresh_minutes;
 }
@@ -34,14 +40,17 @@ unsigned int DB::get_first_rate_id(bool from_beginning) {
   if (!from_beginning && p_conn_info->rows_to_read_debug)
     return p_conn_info->rows_to_read_debug;
   else {
-    pqxx::work transaction(*connections[0].get());
+    pqxx::work transaction(*connections[0]);
     std::string order = from_beginning ? "" : "desc ";
     pqxx::result result = transaction.exec("select rate_id from rate order by rate_id " + order + "limit 1");
     transaction.commit();
+    unsigned int ret_val;
     if (result.empty())
-      return 0;
+      ret_val = 0;
     else
-      return result.begin()[0].as<unsigned int>();
+      ret_val = result.begin()[0].as<unsigned int>();
+    result.clear();
+    return ret_val;
   }
 }
 
@@ -51,22 +60,7 @@ void DB::get_new_records() {
   unsigned int last_rate_id = get_first_rate_id(false);
   unsigned int conn_count = connections.size();
   if (conn_count == 1) {
-    pqxx::work transaction( *connections[0].get() );
-    std::string query;
-    query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
-    query += "extract(epoch from effective_date) as effective_date, ";
-    query += "extract(epoch from end_date) as end_date, ";
-    query += "code.name as code_name ";
-    query += "from rate ";
-    query += "join code using (code) ";
-    query += "join resource using (rate_table_id) ";
-    query += "where resource.active=true and resource.egress=true";
-    query += " and rate_id between " + transaction.quote(first_rate_id);
-    query += " and " + transaction.quote(last_rate_id);
-    query += " order by rate_id";
-    pqxx::result result = transaction.exec(query);
-    transaction.commit();
-    consolidate_results(result);
+    query_database(0, "all", first_rate_id, last_rate_id);
   }
   else {
     std::cout << "in parallel... " << std::endl;
@@ -76,9 +70,8 @@ void DB::get_new_records() {
     std::atomic_uint last_queried_row;
     last_queried_row = first_rate_id - 1;
     tbb::mutex range_selection_mutex;
-    parallel_for (tbb::blocked_range<size_t>(0, conn_count),
+    tbb::parallel_for (tbb::blocked_range<size_t>(0, conn_count),
       [&](const tbb::blocked_range<size_t> &r){
-        tbb::task_group tasks;
         for (size_t conn_index = r.begin(); conn_index != r.end(); ++conn_index) {
           unsigned int range_first_rate_id;
           unsigned int range_last_rate_id;
@@ -91,43 +84,7 @@ void DB::get_new_records() {
                 range_last_rate_id = last_rate_id;
               last_queried_row = range_last_rate_id;
             }
-            int remaining_retries = 3;
-            while (remaining_retries > 0) {
-              try {
-                pqxx::work transaction(*connections[conn_index].get());
-                {
-                  tbb::mutex::scoped_lock lock(track_output_mutex1);
-                  std::cout << "Reading " << chunk_size << " records through connection: " << conn_index << ", from rate_id: " << range_first_rate_id << " to rate_id: " << range_last_rate_id << std::endl;
-                }
-                std::string query;
-                query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
-                query += "extract(epoch from effective_date) as effective_date, ";
-                query += "extract(epoch from end_date) as end_date, ";
-                query += "code.name as code_name ";
-                query += "from rate ";
-                query += "join code using (code) ";
-                query += "join resource using (rate_table_id) ";
-                query += "where resource.active=true and resource.egress=true";
-                query += " and rate_id between " + transaction.quote(range_first_rate_id);
-                query += " and " + transaction.quote(range_last_rate_id);
-                query += " order by rate_id";
-                pqxx::result result = transaction.exec(query);
-                transaction.commit();
-                {
-                  tbb::mutex::scoped_lock lock(track_output_mutex2);
-                  std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
-                }
-                consolidate_results(result);
-                remaining_retries = -1;
-              } catch (std::exception &e) {
-                remaining_retries--;
-                tbb::mutex::scoped_lock lock(track_output_mutex2);
-                std::cout << "Failed query at connection: " << conn_index << ". Retrying..." << std::endl;
-              }
-            }
-            if (remaining_retries == 0) {
-              throw DBQueryFailedException();
-            }
+            query_database(conn_index, std::to_string(chunk_size), range_first_rate_id, range_last_rate_id);
           }
         }
       });
@@ -135,7 +92,48 @@ void DB::get_new_records() {
   std::cout << "done." << std::endl;
 }
 
-void DB::consolidate_results(pqxx::result result) {
+void DB::query_database(unsigned int conn_index, std::string chunk_size, int first_rate_id, unsigned int last_rate_id) {
+  int remaining_retries = 3;
+  while (remaining_retries > 0) {
+    try {
+      pqxx::work transaction(*connections[conn_index]);
+      {
+        tbb::mutex::scoped_lock lock(track_output_mutex1);
+        std::cout << "Reading " << chunk_size << " records through connection: " << conn_index << ", from rate_id: " << first_rate_id << " to rate_id: " << last_rate_id << std::endl;
+      }
+      std::string query;
+      query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
+      query += "extract(epoch from effective_date) as effective_date, ";
+      query += "extract(epoch from end_date) as end_date, ";
+      query += "code.name as code_name ";
+      query += "from rate ";
+      query += "join code using (code) ";
+      query += "join resource using (rate_table_id) ";
+      query += "where resource.active=true and resource.egress=true";
+      query += " and rate_id between " + transaction.quote(first_rate_id);
+      query += " and " + transaction.quote(last_rate_id);
+      query += " order by rate_id";
+      pqxx::result result = transaction.exec(query);
+      transaction.commit();
+      {
+        tbb::mutex::scoped_lock lock(track_output_mutex2);
+        std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
+      }
+      consolidate_results(result);
+      result.clear();
+      remaining_retries = -1;
+    } catch (std::exception &e) {
+      remaining_retries--;
+      tbb::mutex::scoped_lock lock(track_output_mutex2);
+      std::cout << "Failed query at connection: " << conn_index << ". Retrying..." << std::endl;
+    }
+  }
+  if (remaining_retries == 0) {
+    throw DBQueryFailedException();
+  }
+}
+
+void DB::consolidate_results(const pqxx::result &result) {
   for (pqxx::result::const_iterator row = result.begin(); row != result.end(); ++row) {
     std::string code = row[1].as<std::string>();
     code.erase(std::remove(code.begin(), code.end(), ' '), code.end()); //Cleaning database mess
@@ -146,7 +144,12 @@ void DB::consolidate_results(pqxx::result result) {
       std::cerr << "BAD code: " << code << std::endl;
       continue;
     }
-    unsigned int rate_table_id = row[0].as<unsigned int>();
+    std::string rate_table_id = row[0].as<std::string>();
+    unsigned int numeric_rate_table_id = std::strtoul(rate_table_id.c_str(), nullptr, 10);
+    if (numeric_rate_table_id == 0 || std::to_string(numeric_rate_table_id) != rate_table_id) {
+      std::cerr << "BAD rate table ID: " << rate_table_id << std::endl;
+      continue;
+    }
     double default_rate = row[2].is_null() ? -1 : row[2].as<double>();
     double inter_rate = row[3].is_null() ? -1 : row[3].as<double>();
     double intra_rate = row[4].is_null() ? -1 : row[4].as<double>();
@@ -155,7 +158,7 @@ void DB::consolidate_results(pqxx::result result) {
     time_t end_date = row[7].is_null() ? -1 : row[7].as<time_t>();
     std::string code_name = row[8].as<std::string>();
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
-    controller->insert_new_rate_data(rate_table_id, code, numeric_code, code_name, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date);
+    controller->insert_new_rate_data(rate_table_id, numeric_rate_table_id, code, numeric_code, code_name, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date);
   }
 }
 
@@ -163,7 +166,7 @@ void DB::insert_code_name_rate_table_rate(const search::SearchResult &search_res
   unsigned int conn_count = connections.size();
   size_t result_size = search_result.size();
   unsigned int row_per_conn = result_size / conn_count + 1;
-  parallel_for(tbb::blocked_range<unsigned int>(0, conn_count),
+  tbb::parallel_for(tbb::blocked_range<unsigned int>(0, conn_count),
     [&](const tbb::blocked_range<unsigned int>& r) {
       for (auto conn_index = r.begin(); conn_index != r.end(); ++conn_index) {
         size_t result_ini = conn_index * row_per_conn;
@@ -172,7 +175,7 @@ void DB::insert_code_name_rate_table_rate(const search::SearchResult &search_res
           result_end_edge = result_size;
         for (size_t i = result_ini; i < result_end_edge; i++) {
           search::SearchResultElement* data = search_result[i];
-          pqxx::work transaction( *connections[conn_index].get() );
+          pqxx::work transaction( *connections[conn_index] );
           std::string query;
           query =  "insert into code_name_rate_table_rate ";
           query += "(time, code_name, rate_table_id,";

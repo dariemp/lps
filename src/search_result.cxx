@@ -68,8 +68,19 @@ time_t SearchResultElement::get_future_end_date() {
   return future_end_date;
 }
 
+SearchResult::SearchResult() {
+  data = new search_result_elements_t();
+}
+
+SearchResult::~SearchResult() {
+  for (size_t i = 0; i < data->size(); ++i)
+    delete (*data)[i];
+  data->clear();
+  delete data;
+}
+
 SearchResultElement* SearchResult::operator [](size_t index) const {
-  return data[index].get();
+  return (*data)[index];
 }
 
 void SearchResult::insert(unsigned long long code,
@@ -85,25 +96,25 @@ void SearchResult::insert(unsigned long long code,
                           time_t future_effective_date,
                           time_t future_end_date) {
   tbb::mutex::scoped_lock lock(search_insertion_mutex);
-  if (data.empty())
-    data.emplace_back(
+  if (data->empty())
+    data->emplace_back(
       new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
                               future_effective_date, future_end_date));
   size_t i = 0;
-  size_t data_length = data.size();
-  while (i <  data_length && current_max_rate < data[i]->get_current_max_rate()) i++;
+  size_t data_length = data->size();
+  while (i <  data_length && current_max_rate < (*data)[i]->get_current_max_rate()) i++;
   if (i < data_length) {
-    if (rate_table_id != data[i]->get_rate_table_id() ||
-        code != data[i]->get_code() ||
-        code_name != data[i]->get_code_name())
-      data.emplace(data.begin() + i,
+    if (rate_table_id != (*data)[i]->get_rate_table_id() ||
+        code != (*data)[i]->get_code() ||
+        code_name != (*data)[i]->get_code_name())
+      data->emplace(data->begin() + i,
                    new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                                            future_min_rate, future_max_rate, effective_date, end_date,
                                            future_effective_date, future_end_date));
   }
   else
-    data.emplace_back(
+    data->emplace_back(
       new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
                               future_effective_date, future_end_date));
@@ -120,7 +131,7 @@ void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
 
 std::string SearchResult::to_json() {
   std::string json = "{  \"rank\" : [\n";
-  for (auto it = data.begin(); it != data.end(); ++it) {
+  for (auto it = data->begin(); it != data->end(); ++it) {
     time_t epoch_effective_date = (*it)->get_effective_date();
     time_t epoch_end_date = (*it)->get_end_date();
     std::string effective_date;
@@ -128,7 +139,7 @@ std::string SearchResult::to_json() {
     convert_date(epoch_effective_date, effective_date);
     convert_date(epoch_end_date, end_date);
     double future_max_rate = (*it)->get_future_max_rate();
-    if (it != data.begin() )
+    if (it != data->begin() )
         json += ",\n";
     json += "\t\t{\n";
     json += "\t\t\t\"code\" : " + std::to_string((*it)->get_code()) + ",\n";
@@ -175,7 +186,7 @@ std::string SearchResult::to_json() {
 
 std::string SearchResult::to_text_table() {
   std::string table = "";
-  for (auto it = data.begin(); it != data.end(); ++it) {
+  for (auto it = data->begin(); it != data->end(); ++it) {
     time_t epoch_effective_date = (*it)->get_effective_date();
     time_t epoch_end_date = (*it)->get_end_date();
     std::string effective_date;
@@ -224,5 +235,5 @@ std::string SearchResult::to_text_table() {
 }
 
 size_t SearchResult::size() const {
-  return data.size();
+  return data->size();
 }

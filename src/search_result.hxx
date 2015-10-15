@@ -2,7 +2,6 @@
 #define SEARCH_RESULT_H
 
 #include "shared.hxx"
-#include <memory>
 #include <vector>
 #include <utility>
 #include <tbb/tbb.h>
@@ -10,7 +9,8 @@
 namespace search {
 
   class SearchResultElement;
-  typedef std::vector<std::unique_ptr<SearchResultElement>> search_result_elements_t;
+  typedef std::vector<SearchResultElement*> search_result_elements_t;
+  typedef search_result_elements_t* p_search_result_elements_t;
 
   class SearchResultElement {
     private:
@@ -56,9 +56,11 @@ namespace search {
   class SearchResult {
     private:
       tbb::mutex search_insertion_mutex;
-      search_result_elements_t data;
+      p_search_result_elements_t data;
       void convert_date(time_t epoch_date, std::string &readable_date);
     public:
+      SearchResult();
+      ~SearchResult();
       SearchResultElement* operator [](size_t index) const;
       void insert(unsigned long long code,
                   std::string code_name,

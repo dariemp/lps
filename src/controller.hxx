@@ -5,8 +5,6 @@
 #include "trie.hxx"
 #include "search_result.hxx"
 #include "shared.hxx"
-#include <unordered_map>
-#include <memory>
 #include <vector>
 #include <atomic>
 #include <condition_variable>
@@ -14,14 +12,7 @@
 namespace ctrl {
 
   class Controller;
-  typedef std::vector<unsigned int> rate_table_ids_t;
-  typedef std::vector<std::string> code_names_vector_t;
-  typedef std::unique_ptr<rate_table_ids_t> uptr_rate_table_ids_t;
-  typedef std::unique_ptr<code_names_vector_t> uptr_code_names_vector_t;
-  typedef std::unordered_map<unsigned int, trie::uptr_trie_t> table_tries_map_t;
-  typedef std::unique_ptr<table_tries_map_t> uptr_table_tries_map_t;
   typedef std::unique_lock<std::mutex> mutex_unique_lock_t;
-  typedef std::unique_ptr<Controller> uptr_controller_t;
   typedef Controller* p_controller_t;
 
   class Controller {
@@ -34,28 +25,26 @@ namespace ctrl {
       std::atomic_uint table_access_count;
       std::condition_variable update_tables_holder;
       std::condition_variable access_tables_holder;
-      db::uptr_db_t database;
+      db::p_db_t database;
       db::p_conn_info_t conn_info;
-      uptr_rate_table_ids_t rate_table_ids;
-      uptr_code_names_vector_t code_names_index;
-      uptr_table_tries_map_t tables_tries;
-      uptr_code_names_t code_names;
-      uptr_codes_t codes;
-      uptr_rate_table_ids_t new_rate_table_ids;
-      uptr_code_names_vector_t new_code_names_index;
-      uptr_table_tries_map_t new_tables_tries;
-      uptr_code_names_t new_code_names;
-      uptr_codes_t new_codes;
+      trie::p_tries_t tables_tries;
+      trie::p_trie_t tables_index;
+      p_codes_t codes;
+      trie::p_tries_t new_tables_tries;
+      trie::p_trie_t new_tables_index;
+      p_codes_t new_codes;
       unsigned int telnet_listen_port;
       unsigned int http_listen_port;
       void reset_new_tables();
       void update_rate_tables_tries();
       void create_table_tries();
+      void clear_tables();
+      void renew_tables();
       void update_table_tries();
       //void insert_code_name_rate_table_db();
       void run_http_server();
       void run_telnet_server();
-      void _search_code(std::string code, trie::rate_type_t rate_type, search::SearchResult &result);
+      void _search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result);
       Controller(db::ConnectionInfo &conn_info,
                  unsigned int telnet_listen_port,
                  unsigned int http_listen_port);
@@ -64,21 +53,22 @@ namespace ctrl {
                                         unsigned int telnet_listen_port,
                                         unsigned int http_listen_port);
       static p_controller_t get_controller();
-      void insert_new_rate_data(unsigned int rate_table_id,
-                                std::string code,
+      void start_workflow();
+      void insert_new_rate_data(const std::string &rate_table_id,
+                                unsigned int numeric_rate_table_id,
+                                const std::string &code,
                                 unsigned long long numeric_code,
-                                std::string code_name,
+                                const std::string &code_name,
                                 double default_rate,
                                 double inter_rate,
                                 double intra_rate,
                                 double local_rate,
                                 time_t effective_date,
                                 time_t end_date);
-      void start_workflow();
-      void search_code(std::string code, trie::rate_type_t rate_type, search::SearchResult &result);
-      void search_code_name(std::string code_name, trie::rate_type_t rate_type, search::SearchResult &result);
-      void search_code_name_rate_table(std::string code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
-      void search_rate_table(unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
+      void search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result);
+      void search_code_name(const std::string &code_name, trie::rate_type_t rate_type, search::SearchResult &result);
+      void search_code_name_rate_table(const std::string &code_name, const std::string &rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
+      void search_rate_table(const std::string &rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
       void search_all_codes(trie::rate_type_t rate_type, search::SearchResult &result);
   };
 }
