@@ -22,12 +22,6 @@ Controller::Controller(db::ConnectionInfo &conn_info,
       table_access_count = 0;
 }
 
-void Controller::reset_new_tables() {
-  new_tables_index = new trie::Trie();
-  new_tables_tries = new trie::tries_t();
-  new_codes = new codes_t();
-}
-
 void Controller::clear_tables() {
   delete tables_index;
   for (size_t i = 0; i < tables_tries->size(); ++i)
@@ -42,6 +36,12 @@ void Controller::renew_tables() {
   tables_index = new_tables_index;
   tables_tries = new_tables_tries;
   codes = new_codes;
+}
+
+void Controller::reset_new_tables() {
+  new_tables_index = new trie::Trie();
+  new_tables_tries = new trie::tries_t();
+  new_codes = new codes_t();
 }
 
 void Controller::update_rate_tables_tries() {
@@ -106,13 +106,14 @@ void Controller::update_table_tries() {
   }
 }
 
-/*void Controller::insert_code_name_rate_table_db() {
+void Controller::insert_code_name_rate_table_db() {
   search::SearchResult result;
   std::cout << "Searching all codes..." << std::endl;
-  search_all_codes(result);
+  for (unsigned char i = trie::rate_type_t::RATE_TYPE_DEFAULT; i <= trie::rate_type_t::RATE_TYPE_LOCAL; ++i)
+    search_all_codes((trie::rate_type_t)i, result);
   std::cout << "Updating database with rate data..." << std::endl;
-  database->insert_code_name_rate_table_rate(result);
-}*/
+  //database->insert_code_name_rate_table_rate(result);
+}
 
 void Controller::run_http_server() {
   rest::Rest rest_server;
@@ -151,7 +152,7 @@ void Controller::insert_new_rate_data(const std::string &rate_table_id,
                                       double local_rate,
                                       time_t effective_date,
                                       time_t end_date) {
-  unsigned long long table_index;
+  size_t table_index;
   codes_t::iterator it = new_codes->end();
   {
     tbb::mutex::scoped_lock lock(map_insertion_mutex);
@@ -226,7 +227,7 @@ void Controller::search_code_name_rate_table(const std::string &code_name, const
   unsigned long long numeric_code = (*codes)[code_name];
   if (numeric_code == 0)
     return;
-  unsigned long long index;
+  size_t index;
   if ((index = tables_index->search_table_index(tables_index, rate_table_id.c_str(), rate_table_id.size())) == 0 )
     return;
   unsigned int numeric_rate_table_id = std::strtoul(rate_table_id.c_str(), nullptr, 10);
@@ -252,7 +253,7 @@ void Controller::search_rate_table(const std::string &rate_table_id, trie::rate_
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
-  unsigned long long index;
+  size_t index;
   if ((index = tables_index->search_table_index(tables_index, rate_table_id.c_str(), rate_table_id.size())) == 0 )
     return;
   {

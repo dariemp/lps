@@ -122,7 +122,7 @@ void SearchResult::insert(unsigned long long code,
 
 void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
   readable_date = "";
-  if (epoch_date != -1) {
+  if (epoch_date > 0) {
     char buffer_date[100];
     strftime(buffer_date, 100, "%a %e %b %Y %T %z", gmtime(&epoch_date));
     readable_date = std::string(buffer_date);
@@ -149,13 +149,13 @@ std::string SearchResult::to_json() {
     json += "\t\t\t\"current_max_rate\" : " + std::to_string((*it)->get_current_max_rate()) + ",\n";
     json += "\t\t\t\"current_min_rate\" : " + std::to_string((*it)->get_current_min_rate()) + ",\n";
     json += "\t\t\t\"effective_date\" : \"" + effective_date + "\",\n";
-    if (epoch_end_date == -1)
+    if (epoch_end_date <= 0)
       json += "\t\t\t\"end_date\" : null\n";
     else {
       convert_date(epoch_end_date, end_date);
       json += "\t\t\t\"end_date\" : \"" + end_date + "\"\n";
     }
-    if (future_max_rate == -1) {
+    if (future_max_rate <= 0) {
       json += "\t\t\t\"future_max_rate\" : null,\n";
       json += "\t\t\t\"future_min_rate\" : null,\n";
       json += "\t\t\t\"future_effective_date\" : null,\n";
@@ -171,7 +171,7 @@ std::string SearchResult::to_json() {
       json += "\t\t\t\"future_max_rate\" : " + std::to_string(future_max_rate) + ",\n";
       json += "\t\t\t\"future_min_rate\" : " + std::to_string(future_min_rate)  + ",\n";
       json += "\t\t\t\"future_effective_date\" : \"" + future_effective_date + "\",\n";
-      if (epoch_future_end_date == -1)
+      if (epoch_future_end_date <= 0)
         json += "\t\t\t\"future_end_date\" : null\n";
       else {
         convert_date(epoch_future_end_date, future_end_date);
@@ -200,13 +200,13 @@ std::string SearchResult::to_text_table() {
     table += "current_max_rate      : " + std::to_string((*it)->get_current_max_rate()) + "\n";
     table += "current_min_rate      : " + std::to_string((*it)->get_current_min_rate()) + "\n";
     table += "effective_date        : " + effective_date + "\n";
-    if (epoch_end_date == -1)
+    if (epoch_end_date <= 0)
       table += "end_date              : -\n";
     else {
       convert_date(epoch_end_date, end_date);
       table += "end_date              : " + end_date + "\n";
     }
-    if (future_max_rate == -1) {
+    if (future_max_rate <= 0) {
       table += "future_max_rate       : -\n";
       table += "future_min_rate       : -\n";
       table += "future_effective_date : -\n";
@@ -222,7 +222,7 @@ std::string SearchResult::to_text_table() {
       table += "future_max_rate       : " + std::to_string(future_max_rate) + "\n";
       table += "future_min_rate       : " + std::to_string(future_min_rate)  + "\n";
       table += "future_effective_date : " + future_effective_date + "\n";
-      if (epoch_future_end_date == -1)
+      if (epoch_future_end_date <= 0)
         table += "future_end_date       : -\n";
       else {
         convert_date(epoch_future_end_date, future_end_date);

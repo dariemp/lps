@@ -41,7 +41,7 @@ namespace ctrl {
       void clear_tables();
       void renew_tables();
       void update_table_tries();
-      //void insert_code_name_rate_table_db();
+      void insert_code_name_rate_table_db();
       void run_http_server();
       void run_telnet_server();
       void _search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result);
