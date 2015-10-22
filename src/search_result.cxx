@@ -6,7 +6,7 @@ using namespace search;
 
 SearchResultElement::SearchResultElement(unsigned long long code, std::string code_name, unsigned int rate_table_id, trie::rate_type_t rate_type,
       double current_min_rate, double current_max_rate, double future_min_rate, double future_max_rate,
-      time_t effective_date, time_t end_date, time_t future_effective_date, time_t future_end_date)
+      time_t effective_date, time_t end_date, time_t future_effective_date, time_t future_end_date, unsigned int egress_trunk_id)
         : code(code),
           code_name(code_name),
           rate_table_id(rate_table_id),
@@ -18,7 +18,8 @@ SearchResultElement::SearchResultElement(unsigned long long code, std::string co
           effective_date(effective_date),
           end_date(end_date),
           future_effective_date(future_effective_date),
-          future_end_date(future_end_date) {}
+          future_end_date(future_end_date),
+          egress_trunk_id(egress_trunk_id) {}
 
 unsigned long long SearchResultElement::get_code() {
     return code;
@@ -68,6 +69,10 @@ time_t SearchResultElement::get_future_end_date() {
   return future_end_date;
 }
 
+unsigned int SearchResultElement::get_egress_trunk_id() {
+  return egress_trunk_id;
+}
+
 SearchResult::SearchResult() {
   data = new search_result_elements_t();
 }
@@ -94,13 +99,14 @@ void SearchResult::insert(unsigned long long code,
                           time_t effective_date,
                           time_t end_date,
                           time_t future_effective_date,
-                          time_t future_end_date) {
+                          time_t future_end_date,
+                          unsigned int egress_trunk_id) {
   tbb::mutex::scoped_lock lock(search_insertion_mutex);
   if (data->empty())
     data->emplace_back(
       new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
-                              future_effective_date, future_end_date));
+                              future_effective_date, future_end_date, egress_trunk_id));
   size_t i = 0;
   size_t data_length = data->size();
   while (i <  data_length && current_max_rate < (*data)[i]->get_current_max_rate()) i++;
@@ -111,13 +117,13 @@ void SearchResult::insert(unsigned long long code,
       data->emplace(data->begin() + i,
                    new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                                            future_min_rate, future_max_rate, effective_date, end_date,
-                                           future_effective_date, future_end_date));
+                                           future_effective_date, future_end_date, egress_trunk_id));
   }
   else
     data->emplace_back(
       new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
-                              future_effective_date, future_end_date));
+                              future_effective_date, future_end_date, egress_trunk_id));
 }
 
 void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
@@ -144,8 +150,9 @@ std::string SearchResult::to_json() {
     json += "\t\t{\n";
     json += "\t\t\t\"code\" : " + std::to_string((*it)->get_code()) + ",\n";
     json += "\t\t\t\"code_name\" : \"" + (*it)->get_code_name() + "\",\n";
-    json += "\t\t\t\"rate_table_id\" : " + std::to_string((*it)->get_rate_table_id()) + ",\n";
     json += "\t\t\t\"rate_type\" : \"" + trie::rate_type_to_string((*it)->get_rate_type()) + "\",\n";
+    json += "\t\t\t\"rate_table_id\" : " + std::to_string((*it)->get_rate_table_id()) + ",\n";
+    json += "\t\t\t\"egress_trunk_id\" : " + std::to_string((*it)->get_egress_trunk_id()) + ",\n";
     json += "\t\t\t\"current_max_rate\" : " + std::to_string((*it)->get_current_max_rate()) + ",\n";
     json += "\t\t\t\"current_min_rate\" : " + std::to_string((*it)->get_current_min_rate()) + ",\n";
     json += "\t\t\t\"effective_date\" : \"" + effective_date + "\",\n";
@@ -195,8 +202,9 @@ std::string SearchResult::to_text_table() {
     double future_max_rate = (*it)->get_future_max_rate();
     table += "code                  : " + std::to_string((*it)->get_code()) + "\n";
     table += "code_name             : " + (*it)->get_code_name() + "\n";
-    table += "rate_table_id         : " + std::to_string((*it)->get_rate_table_id()) + "\n";
     table += "rate_type             : " + trie::rate_type_to_string((*it)->get_rate_type()) + "\n";
+    table += "rate_table_id         : " + std::to_string((*it)->get_rate_table_id()) + "\n";
+    table += "egress_trunk_id       : " + std::to_string((*it)->get_egress_trunk_id()) + "\n";
     table += "current_max_rate      : " + std::to_string((*it)->get_current_max_rate()) + "\n";
     table += "current_min_rate      : " + std::to_string((*it)->get_current_min_rate()) + "\n";
     table += "effective_date        : " + effective_date + "\n";

@@ -26,6 +26,7 @@ namespace search {
       time_t end_date;
       time_t future_effective_date;
       time_t future_end_date;
+      unsigned int egress_trunk_id;
     public:
       SearchResultElement(unsigned long long code,
                           std::string code_name,
@@ -38,7 +39,8 @@ namespace search {
                           time_t effective_date,
                           time_t end_date,
                           time_t future_effective_date,
-                          time_t future_end_date);
+                          time_t future_end_date,
+                          unsigned int egress_trunk_id);
       unsigned long long get_code();
       std::string get_code_name();
       unsigned int get_rate_table_id();
@@ -51,6 +53,7 @@ namespace search {
       time_t get_end_date();
       time_t get_future_effective_date();
       time_t get_future_end_date();
+      unsigned int get_egress_trunk_id();
   };
 
   class SearchResult {
@@ -73,7 +76,8 @@ namespace search {
                   time_t effective_date,
                   time_t end_date,
                   time_t future_effective_date,
-                  time_t future_end_date);
+                  time_t future_end_date,
+                  unsigned int egress_trunk_id);
       size_t size() const;
       std::string to_json();
       std::string to_text_table();

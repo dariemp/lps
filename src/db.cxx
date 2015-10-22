@@ -106,7 +106,8 @@ void DB::query_database(unsigned int conn_index, std::string chunk_size, int fir
       query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
       query += "extract(epoch from effective_date) as effective_date, ";
       query += "extract(epoch from end_date) as end_date, ";
-      query += "code.name as code_name ";
+      query += "code.name as code_name, ";
+      query += "resource.resource_id as egress_trunk_id ";
       query += "from rate ";
       query += "join code using (code) ";
       query += "join resource using (rate_table_id) ";
@@ -158,8 +159,9 @@ void DB::consolidate_results(const pqxx::result &result) {
     time_t effective_date = row[6].is_null() ? -1 : row[6].as<time_t>();
     time_t end_date = row[7].is_null() ? -1 : row[7].as<time_t>();
     std::string code_name = row[8].as<std::string>();
+    unsigned int egress_trunk_id = row[9].as<unsigned int>();
     ctrl::p_controller_t controller = ctrl::Controller::get_controller();
-    controller->insert_new_rate_data(rate_table_id, numeric_rate_table_id, code, numeric_code, code_name, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date);
+    controller->insert_new_rate_data(rate_table_id, numeric_rate_table_id, code, numeric_code, code_name, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date, egress_trunk_id);
   }
 }
 

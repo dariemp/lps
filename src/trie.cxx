@@ -273,6 +273,38 @@ void TrieData::set_code_name_ptr(ctrl::p_code_pair_t code_name_ptr) {
   fields[field_pos] = code_name_ptr;
 }
 
+void TrieData::set_egress_trunk_id(rate_type_t rate_type, unsigned int egress_trunk_id) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      set_field<unsigned int>(INTER_RATE_EGRESS_TRUNK_ID, egress_trunk_id);
+      break;
+    case RATE_TYPE_INTRA:
+      set_field<unsigned int>(INTRA_RATE_EGRESS_TRUNK_ID, egress_trunk_id);
+      break;
+    case RATE_TYPE_LOCAL:
+      set_field<unsigned int>(LOCAL_RATE_EGRESS_TRUNK_ID, egress_trunk_id);
+      break;
+    default:
+      set_field<unsigned int>(DEFAULT_RATE_EGRESS_TRUNK_ID, egress_trunk_id);
+  }
+}
+
+unsigned int TrieData::get_egress_trunk_id(rate_type_t rate_type) {
+  switch (rate_type) {
+    case RATE_TYPE_INTER:
+      return get_field<unsigned int>(INTER_RATE_EGRESS_TRUNK_ID);
+      break;
+    case RATE_TYPE_INTRA:
+      return get_field<unsigned int>(INTRA_RATE_EGRESS_TRUNK_ID);
+      break;
+    case RATE_TYPE_LOCAL:
+      return get_field<unsigned int>(LOCAL_RATE_EGRESS_TRUNK_ID);
+      break;
+    default:
+      return get_field<unsigned int>(DEFAULT_RATE_EGRESS_TRUNK_ID);
+  }
+}
+
 unsigned int TrieData::get_rate_table_id() {
   return get_field<unsigned int>(RATE_TABLE_ID);
 }
@@ -300,18 +332,18 @@ p_trie_data_t Trie::get_data() {
   return data;
 }
 
-void Trie::set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr) {
+void Trie::set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr, unsigned int egress_trunk_id) {
   data->set_current_rate(rate_type, rate);
   data->set_current_effective_date(rate_type, effective_date);
   data->set_current_end_date(rate_type, end_date);
   data->set_code_name_ptr(code_name_ptr);
+  data->set_egress_trunk_id(rate_type, egress_trunk_id);
 }
 
-void Trie::set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr) {
+void Trie::set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date) {
   data->set_future_rate(rate_type, rate);
   data->set_future_effective_date(rate_type, effective_date);
   data->set_future_end_date(rate_type, end_date);
-  data->set_code_name_ptr(code_name_ptr);
 }
 
 uint16_t Trie::index_to_mask(unsigned char index) {
@@ -377,7 +409,8 @@ void Trie::insert_code(const p_trie_t trie,
                        double local_rate,
                        time_t effective_date,
                        time_t end_date,
-                       time_t reference_time) {
+                       time_t reference_time,
+                       unsigned int egress_trunk_id) {
   tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
   if (code_length <= 0)
     throw TrieInvalidPrefixLengthException();
@@ -422,11 +455,11 @@ void Trie::insert_code(const p_trie_t trie,
     if (rate <= 0) continue;  //Don't update rate data if it is inexistent
     if ( effective_date <= reference_time && effective_date > old_current_effective_date &&
         (end_date <= 0 || end_date >= reference_time)) {
-      current_trie->set_current_data(rate_type, rate, effective_date, end_date, code_name_ptr);
+      current_trie->set_current_data(rate_type, rate, effective_date, end_date, code_name_ptr, egress_trunk_id);
     }
     if ( effective_date > reference_time &&
         (old_future_effective_date <= 0 || effective_date < old_future_effective_date))
-      current_trie->set_future_data(rate_type, rate, effective_date, end_date, code_name_ptr);
+      current_trie->set_future_data(rate_type, rate, effective_date, end_date);
   }
 }
 
@@ -448,6 +481,7 @@ void Trie::search_code(const p_trie_t trie, const char *code, size_t code_length
   time_t current_end_date;
   time_t future_effective_date;
   time_t future_end_date;
+  unsigned int egress_trunk_id;
   while (code_length > 0) {
     unsigned char child_index = code[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
     if (current_trie->has_child(child_index)) {         // If we have a child node, move to it so we can search the longest prefix
@@ -469,13 +503,14 @@ void Trie::search_code(const p_trie_t trie, const char *code, size_t code_length
           current_effective_date = data_current_effective_date;
           current_end_date = data_current_end_date;
           code_name = data->get_code_name();
-        }
-        if (future_min_rate <=0 || data_future_rate < future_min_rate)
-          future_min_rate = data_future_rate;
-        if (future_max_rate <=0 || data_future_rate > future_max_rate) {
-          future_max_rate = data_future_rate;
-          future_effective_date = data_future_effective_date;
-          future_end_date = data_future_end_date;
+          egress_trunk_id = data->get_egress_trunk_id(rate_type);
+          if (future_min_rate <=0 || data_future_rate < future_min_rate)
+            future_min_rate = data_future_rate;
+          if (future_max_rate <=0 || data_future_rate > future_max_rate) {
+            future_max_rate = data_future_rate;
+            future_effective_date = data_future_effective_date;
+            future_end_date = data_future_end_date;
+          }
         }
       }
       code++;
@@ -496,7 +531,8 @@ void Trie::search_code(const p_trie_t trie, const char *code, size_t code_length
                          current_effective_date,
                          current_end_date,
                          future_effective_date,
-                         future_end_date);
+                         future_end_date,
+                         egress_trunk_id);
 }
 
 /**

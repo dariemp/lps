@@ -41,7 +41,11 @@ namespace trie {
     TABLE_INDEX                      = 0x00000080,
     RATE_TABLE_ID                    = 0x00000040,
     CODE_NAME_ADDRESS                = 0x00000020,
-    EMPTY_FLAG                       = 0x00000010,
+    DEFAULT_RATE_EGRESS_TRUNK_ID     = 0x00000010,
+    INTER_RATE_EGRESS_TRUNK_ID       = 0x00000008,
+    INTRA_RATE_EGRESS_TRUNK_ID       = 0x00000004,
+    LOCAL_RATE_EGRESS_TRUNK_ID       = 0x00000002,
+    EMPTY_FLAG                       = 0x00000001,
   };
 
   //typedef std::unordered_map<unsigned char, void*> trie_data_fields_t;
@@ -90,6 +94,8 @@ namespace trie {
       void set_table_index(size_t table_index);
       std::string get_code_name();
       void set_code_name_ptr(ctrl::p_code_pair_t code_name_ptr);
+      void set_egress_trunk_id(rate_type_t rate_type, unsigned int egress_trunk_id);
+      unsigned int get_egress_trunk_id(rate_type_t rate_type);
       unsigned int get_rate_table_id();
       void set_rate_table_id(unsigned int rate_table_id);
   };
@@ -111,8 +117,8 @@ static tbb::mutex trie_insertion_mutex;
       bool has_child(unsigned char index);
       p_trie_t get_child(unsigned char index);
       p_trie_t insert_child(unsigned char index);
-      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr);
-      void set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr);
+      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr, unsigned int gress_trunk_id);
+      void set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date);
       static void total_search_update_vars(const p_trie_t &current_trie,
                                            const search_nodes_t &nodes,
                                            unsigned long long &code,
@@ -140,7 +146,8 @@ static tbb::mutex trie_insertion_mutex;
                               double local_rate,
                               time_t effective_date,
                               time_t end_date,
-                              time_t reference_time);
+                              time_t reference_time,
+                              unsigned int egress_trunk_id);
       static void search_code(const p_trie_t trie, const char *code, size_t code_length, rate_type_t rate_type, search::SearchResult &search_result);
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
       static void insert_table_index(const p_trie_t trie, const char *prefix, size_t prefix_length, size_t index);

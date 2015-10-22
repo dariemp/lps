@@ -151,7 +151,8 @@ void Controller::insert_new_rate_data(const std::string &rate_table_id,
                                       double intra_rate,
                                       double local_rate,
                                       time_t effective_date,
-                                      time_t end_date) {
+                                      time_t end_date,
+                                      unsigned int egress_trunk_id) {
   size_t table_index;
   codes_t::iterator it = new_codes->end();
   {
@@ -170,7 +171,7 @@ void Controller::insert_new_rate_data(const std::string &rate_table_id,
   trie::p_trie_t trie = (*new_tables_tries)[table_index];
   size_t code_length = code.length();
   const char *c_code = code.c_str();
-  trie->insert_code(trie, c_code, code_length, code_name_ptr, numeric_rate_table_id, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date, reference_time);
+  trie->insert_code(trie, c_code, code_length, code_name_ptr, numeric_rate_table_id, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date, reference_time, egress_trunk_id);
 }
 
 void Controller::search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result) {

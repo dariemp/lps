@@ -64,7 +64,8 @@ namespace ctrl {
                                 double intra_rate,
                                 double local_rate,
                                 time_t effective_date,
-                                time_t end_date);
+                                time_t end_date,
+                                unsigned int egress_trunk_id);
       void search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result);
       void search_code_name(const std::string &code_name, trie::rate_type_t rate_type, search::SearchResult &result);
       void search_code_name_rate_table(const std::string &code_name, const std::string &rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
