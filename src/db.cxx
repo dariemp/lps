@@ -17,12 +17,8 @@ DB::DB(ConnectionInfo &conn_info) {
   std::cout << "Connecting to database with " << conn_info.conn_count << " connections... ";
   tbb::parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count),
       [=](const tbb::blocked_range<size_t>& r) {
-          for (size_t i = r.begin(); i != r.end(); ++i) {
-            p_connection_t conn = new pqxx::connection("host=" + conn_info.host + " dbname=" + conn_info.dbname + " user=" + conn_info.user + " password=" + conn_info.password + " port=" + std::to_string(conn_info.port));
-            add_conn_mutex.lock();
-            connections.emplace_back(conn);
-            add_conn_mutex.unlock();
-          }
+          for (size_t i = r.begin(); i != r.end(); ++i)
+            connections.push_back(new pqxx::connection("host=" + conn_info.host + " dbname=" + conn_info.dbname + " user=" + conn_info.user + " password=" + conn_info.password + " port=" + std::to_string(conn_info.port)));
       });
   std::cout << "done." << std::endl;
 }

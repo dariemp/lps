@@ -2,8 +2,6 @@
 #define SEARCH_RESULT_H
 
 #include "shared.hxx"
-#include <vector>
-#include <utility>
 #include <tbb/tbb.h>
 
 namespace search {

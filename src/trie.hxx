@@ -48,12 +48,10 @@ namespace trie {
     EMPTY_FLAG                       = 0x00000001,
   };
 
-  //typedef std::unordered_map<unsigned char, void*> trie_data_fields_t;
-  //typedef trie_data_fields_t* p_trie_data_fields_t;
   typedef TrieData* p_trie_data_t;
   typedef Trie* p_trie_t;
-  typedef std::vector<trie::p_trie_t> tries_t;
-  typedef std::unordered_map<unsigned char, p_trie_t> children_t;
+  typedef tbb::concurrent_vector<trie::p_trie_t> tries_t;
+  typedef tbb::concurrent_unordered_map<unsigned char, p_trie_t> children_t;
   typedef tries_t* p_tries_t;
   typedef struct {
     unsigned char child_index;

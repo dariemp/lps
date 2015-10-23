@@ -62,19 +62,12 @@ void Controller::update_rate_tables_tries() {
 }
 
 void Controller::start_workflow() {
-  std::cout << "Defining pathways..." << std::endl;
-  graph tbb_graph;
-  continue_node<continue_msg> start_node (tbb_graph, [=](const continue_msg &) { create_table_tries(); });
-  continue_node<continue_msg> update_node (tbb_graph, [=]( const continue_msg &) { update_table_tries(); });
-  continue_node<continue_msg> http_node (tbb_graph, [=]( const continue_msg &) { run_http_server(); });
-  continue_node<continue_msg> telnet_node (tbb_graph, [=]( const continue_msg &) { run_telnet_server(); });
-  make_edge(start_node, update_node);
-  make_edge(start_node, http_node);
-  make_edge(start_node, telnet_node);
-  std::cout << "Starting workflow..." << std::endl;
-  continue_msg msg;
-  start_node.try_put(msg);
-  tbb_graph.wait_for_all();
+  tbb::task_group tasks;
+  create_table_tries();
+  tasks.run([&]{ run_http_server(); });
+  tasks.run([&]{ run_telnet_server(); });
+  update_table_tries();
+  tasks.wait();
 };
 
 void Controller::create_table_tries() {
@@ -158,7 +151,7 @@ void Controller::insert_new_rate_data(const std::string &rate_table_id,
   {
     tbb::mutex::scoped_lock lock(map_insertion_mutex);
     if ((table_index = new_tables_index->search_table_index(new_tables_index, rate_table_id.c_str(), rate_table_id.size())) == 0) {
-      new_tables_tries->emplace_back(new trie::Trie());
+      new_tables_tries->push_back(new trie::Trie());
       table_index = new_tables_tries->size()-1;
       new_tables_index->insert_table_index(new_tables_index, rate_table_id.c_str(), rate_table_id.size(), table_index);
     }

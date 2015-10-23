@@ -114,7 +114,7 @@ void SearchResult::insert(unsigned long long code,
     if (rate_table_id != (*data)[i]->get_rate_table_id() ||
         code != (*data)[i]->get_code() ||
         code_name != (*data)[i]->get_code_name())
-      data->emplace(data->begin() + i,
+      data->insert(data->begin() + i,
                    new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                                            future_min_rate, future_max_rate, effective_date, end_date,
                                            future_effective_date, future_end_date, egress_trunk_id));

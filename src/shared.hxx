@@ -1,9 +1,10 @@
 #ifndef SHARED_H
 #define SHARED_H
-#include <unordered_map>
+
+#include <tbb/tbb.h>
 
 namespace ctrl {
-  typedef std::unordered_map<std::string, unsigned long long> codes_t;
+  typedef tbb::concurrent_unordered_map<std::string, unsigned long long> codes_t;
   typedef std::pair<const std::string, unsigned long long> code_pair_t;
   typedef code_pair_t* p_code_pair_t;
   typedef codes_t* p_codes_t;

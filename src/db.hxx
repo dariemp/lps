@@ -3,7 +3,6 @@
 
 #include <tbb/tbb.h>
 #include <pqxx/pqxx>
-#include <vector>
 #include "search_result.hxx"
 
 namespace db {
@@ -13,7 +12,7 @@ namespace db {
   typedef ConnectionInfo* p_conn_info_t;
   typedef DB* p_db_t;
   typedef pqxx::connection* p_connection_t;
-  typedef  std::vector<p_connection_t> connections_t;
+  typedef tbb::concurrent_vector<p_connection_t> connections_t;
 
   class ConnectionInfo {
     public:
@@ -30,7 +29,6 @@ namespace db {
 
   class DB {
     private:
-      tbb::mutex add_conn_mutex;
       tbb::mutex track_output_mutex1;
       tbb::mutex track_output_mutex2;
       p_conn_info_t p_conn_info;
