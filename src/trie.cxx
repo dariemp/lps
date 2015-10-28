@@ -1,4 +1,5 @@
 #include "trie.hxx"
+#include "code.hxx"
 #include "exceptions.hxx"
 #include <algorithm>
 #include <iostream>
@@ -34,8 +35,18 @@ template <typename T> T TrieData::get_field(trie_data_field_t key) {
   if (fields_bitmap & key)
     return *(T*)fields[key_to_field_pos(key)];
   else
-    return 0;
+    return -1;
 }
+
+namespace trie {
+  template <> unsigned TrieData::get_field<unsigned int>(trie_data_field_t key) {
+    if (fields_bitmap & key)
+      return *(int*)fields[key_to_field_pos(key)];
+    else
+      return 0;
+  }
+};
+
 
 template <typename T> void TrieData::set_field(trie_data_field_t key, T value) {
   if (value <= 0)
@@ -245,12 +256,12 @@ void TrieData::set_future_end_date(rate_type_t rate_type, time_t end_date) {
   }
 }
 
-size_t TrieData::get_table_index() {
-  return get_field<size_t>(TABLE_INDEX);
+int TrieData::get_table_index() {
+  return get_field<int>(TABLE_INDEX);
 }
 
 void TrieData::set_table_index(size_t table_index) {
-  set_field<size_t>(TABLE_INDEX, table_index);
+  set_field<int>(TABLE_INDEX, table_index);
 }
 
 std::string TrieData::get_code_name() {
@@ -366,7 +377,6 @@ unsigned char Trie::index_to_child_pos(unsigned char index) {
   return pos;
 }
 
-
 bool Trie::has_child(unsigned char index) {
   if (index < 0 || index > 9)
     throw TrieInvalidChildIndexException();
@@ -399,8 +409,7 @@ p_trie_t Trie::insert_child(unsigned char index) {
     Inserts rate data in the prefix tree at the correct prefix location
 */
 void Trie::insert_code(const p_trie_t trie,
-                       const char *code,
-                       size_t code_length,
+                       unsigned long long code,
                        ctrl::p_code_pair_t code_name_ptr,
                        unsigned int rate_table_id,
                        double default_rate,
@@ -412,8 +421,6 @@ void Trie::insert_code(const p_trie_t trie,
                        time_t reference_time,
                        unsigned int egress_trunk_id) {
   tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
-  if (code_length <= 0)
-    throw TrieInvalidPrefixLengthException();
   p_trie_data_t root_data = trie->get_data();
   unsigned int root_rate_table_id = root_data->get_rate_table_id();
   if (root_rate_table_id == 0)
@@ -421,14 +428,14 @@ void Trie::insert_code(const p_trie_t trie,
   else if (root_rate_table_id != rate_table_id)
     throw TrieWrongRateTableException();
   p_trie_t current_trie = trie;
-  while (code_length > 0) {
-    unsigned char child_index = code[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+  //long long dyn_code = code;
+  Code dyn_code(code);
+  while (dyn_code.has_more_digits()) {
+    unsigned char child_index = dyn_code.next_digit();
     if (current_trie->has_child(child_index))
       current_trie = current_trie->get_child(child_index);
     else
       current_trie = current_trie->insert_child(child_index);
-    code++;
-    code_length--;
   }
   p_trie_data_t trie_data = current_trie->get_data();
   for (int i = RATE_TYPE_DEFAULT; i <= RATE_TYPE_LOCAL; i++) {
@@ -454,9 +461,8 @@ void Trie::insert_code(const p_trie_t trie,
     }
     if (rate <= 0) continue;  //Don't update rate data if it is inexistent
     if ( effective_date <= reference_time && effective_date > old_current_effective_date &&
-        (end_date <= 0 || end_date >= reference_time)) {
+        (end_date <= 0 || end_date >= reference_time))
       current_trie->set_current_data(rate_type, rate, effective_date, end_date, code_name_ptr, egress_trunk_id);
-    }
     if ( effective_date > reference_time &&
         (old_future_effective_date <= 0 || effective_date < old_future_effective_date))
       current_trie->set_future_data(rate_type, rate, effective_date, end_date);
@@ -466,9 +472,7 @@ void Trie::insert_code(const p_trie_t trie,
 /**
     Longest prefix search implementation... sort of
 */
-void Trie::search_code(const p_trie_t trie, const char *code, size_t code_length, rate_type_t rate_type, search::SearchResult &search_result) {
-  if (code_length <= 0)
-    throw TrieInvalidPrefixLengthException();
+void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result) {
   unsigned int rate_table_id = trie->get_data()->get_rate_table_id();
   p_trie_t current_trie = trie;
   unsigned long long code_found = 0, current_code = 0;
@@ -482,8 +486,10 @@ void Trie::search_code(const p_trie_t trie, const char *code, size_t code_length
   time_t future_effective_date;
   time_t future_end_date;
   unsigned int egress_trunk_id;
-  while (code_length > 0) {
-    unsigned char child_index = code[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+  Code dyn_code(code);
+  bool children_found = true;
+  while (children_found && dyn_code.has_more_digits()) {
+    unsigned char child_index = dyn_code.next_digit();
     if (current_trie->has_child(child_index)) {         // If we have a child node, move to it so we can search the longest prefix
       current_trie = current_trie->get_child(child_index);
       current_code =  current_code * 10 + child_index;
@@ -513,11 +519,9 @@ void Trie::search_code(const p_trie_t trie, const char *code, size_t code_length
           }
         }
       }
-      code++;
-      code_length--;
     }
     else
-      code_length = 0;      // Trick to stop the loop if we are in a leaf, longest prefix found
+      children_found = false;
   }
   if (code_found)
     search_result.insert(code_found,
@@ -651,43 +655,36 @@ void Trie::total_search_update_vars(const p_trie_t &current_trie,
   }
 }
 
-void Trie::insert_table_index(const p_trie_t trie, const char *prefix, size_t prefix_length, size_t index) {
+void Trie::insert_table_index(const p_trie_t trie, unsigned int rate_table_id, size_t index) {
   tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
-  if (prefix_length <= 0)
-    throw TrieInvalidPrefixLengthException();
   p_trie_t current_trie = trie;
-  while (prefix_length > 0) {
-    unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
+  Code dyn_rate_table_id(rate_table_id);
+  while (dyn_rate_table_id.has_more_digits()) {
+    unsigned char child_index = dyn_rate_table_id.next_digit();
     if (current_trie->has_child(child_index))
       current_trie = current_trie->get_child(child_index);
     else
       current_trie = current_trie->insert_child(child_index);
-    prefix++;
-    prefix_length--;
   }
   p_trie_data_t trie_data = current_trie->get_data();
   trie_data->set_table_index(index);
 }
 
-size_t Trie::search_table_index(const p_trie_t trie, const char *prefix, size_t prefix_length) {
-  if (prefix_length <= 0)
-    throw TrieInvalidPrefixLengthException();
+int Trie::search_table_index(const p_trie_t trie, unsigned int rate_table_id) {
   p_trie_t current_trie = trie;
-  bool has_child = true;
-  while (has_child && prefix_length > 0) {
-    unsigned char child_index = prefix[0] - 48; // convert "0", "1", "2"... to 0, 1, 2,...
-    if (current_trie->has_child(child_index)) {         // If we have a child node, move to it so we can search the longest prefix
+  Code dyn_rate_table_id(rate_table_id);
+  bool children_found = true;
+  while (children_found && dyn_rate_table_id.has_more_digits()) {
+    unsigned char child_index = dyn_rate_table_id.next_digit();
+    if (current_trie->has_child(child_index))
       current_trie = current_trie->get_child(child_index);
-      prefix++;
-      prefix_length--;
-    }
     else
-      has_child = false;
+      children_found = false;
   }
-  if (prefix_length == 0) {
+  if (children_found) {
     p_trie_data_t trie_data = current_trie->get_data();
     return trie_data->get_table_index();
   }
   else
-    return 0;
+    return -1;
 }

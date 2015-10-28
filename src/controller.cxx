@@ -28,6 +28,8 @@ void Controller::clear_tables() {
     delete (*tables_tries)[i];
   tables_tries->clear();
   delete tables_tries;
+  for (auto it = codes->begin(); it != codes->end(); ++it)
+    delete it->second;
   codes->clear();
   delete codes;
 }
@@ -134,10 +136,8 @@ p_controller_t Controller::get_controller() {
   return controller;
 }
 
-void Controller::insert_new_rate_data(const std::string &rate_table_id,
-                                      unsigned int numeric_rate_table_id,
-                                      const std::string &code,
-                                      unsigned long long numeric_code,
+/*void Controller::insert_new_rate_data(unsigned int rate_table_id,
+                                      unsigned long long code,
                                       const std::string &code_name,
                                       double default_rate,
                                       double inter_rate,
@@ -145,36 +145,42 @@ void Controller::insert_new_rate_data(const std::string &rate_table_id,
                                       double local_rate,
                                       time_t effective_date,
                                       time_t end_date,
-                                      unsigned int egress_trunk_id) {
-  size_t table_index;
+                                      unsigned int egress_trunk_id) { */
+void Controller::insert_new_rate_data(db::db_data_t db_data) {
+  int table_index;
   codes_t::iterator it = new_codes->end();
   {
     tbb::mutex::scoped_lock lock(map_insertion_mutex);
-    if ((table_index = new_tables_index->search_table_index(new_tables_index, rate_table_id.c_str(), rate_table_id.size())) == 0) {
+    if ((table_index = new_tables_index->search_table_index(new_tables_index, db_data.rate_table_id)) == -1) {
       new_tables_tries->push_back(new trie::Trie());
       table_index = new_tables_tries->size()-1;
-      new_tables_index->insert_table_index(new_tables_index, rate_table_id.c_str(), rate_table_id.size(), table_index);
+      new_tables_index->insert_table_index(new_tables_index, db_data.rate_table_id, table_index);
     }
-    if ((it = new_codes->find(code_name)) == new_codes->end())
-      (*new_codes)[code_name] = numeric_code;
+    if ((it = new_codes->find(db_data.code_name)) == new_codes->end())
+      (*new_codes)[db_data.code_name] = new code_list_t();
+    if (db_data.code != 0) {
+      size_t i = 0;
+      p_code_list_t code_list = (*new_codes)[db_data.code_name];
+      while (i < code_list->size() && db_data.code != (*code_list)[i]) i++;
+      if (i == code_list->size())
+        (*new_codes)[db_data.code_name]->push_back(db_data.code);
+    }
   }
   if (it == new_codes->end())
-    it = new_codes->find(code_name);
+    it = new_codes->find(db_data.code_name);
   p_code_pair_t code_name_ptr =  &(*it);
   trie::p_trie_t trie = (*new_tables_tries)[table_index];
-  size_t code_length = code.length();
-  const char *c_code = code.c_str();
-  trie->insert_code(trie, c_code, code_length, code_name_ptr, numeric_rate_table_id, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date, reference_time, egress_trunk_id);
+  trie->insert_code(trie, db_data.code, code_name_ptr, db_data.rate_table_id, db_data.default_rate, db_data.inter_rate, db_data.intra_rate, db_data.local_rate, db_data.effective_date, db_data.end_date, reference_time, db_data.egress_trunk_id);
 }
 
-void Controller::search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result) {
-  unsigned long long numeric_code = std::stoull(code, nullptr, 10);
-  if (numeric_code == 0 || std::to_string(numeric_code) != code)
-    return;
+void Controller::search_code(unsigned long long code, trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
-  _search_code(code, rate_type, result);
+  code_list_t code_list;
+  code_list.push_back(code);
+  _search_code(code_list, rate_type, result);
+  code_list.clear();
 }
 
 void Controller::search_code_name(const std::string &code_name, trie::rate_type_t rate_type, search::SearchResult &result) {
@@ -183,59 +189,59 @@ void Controller::search_code_name(const std::string &code_name, trie::rate_type_
   update_tables_lock.unlock();
   if (codes->find(code_name) == codes->end())
     return;
-  unsigned long long numeric_code = (*codes)[code_name];
-  if (numeric_code == 0)
-    return;
-  _search_code(std::to_string(numeric_code), rate_type, result);
+  p_code_list_t code_list = (*codes)[code_name];
+  /*tbb::parallel_for(tbb::blocked_range<size_t>(0, code_list->size()),
+    [&](const tbb::blocked_range<size_t> &r)  {
+      for (auto i = r.begin(); i != r.end(); ++i)*/
+  _search_code(*code_list, rate_type, result);
+  //});
 }
 
-void Controller::_search_code(const std::string &code, trie::rate_type_t rate_type, search::SearchResult &result) {
+void Controller::_search_code(const code_list_t &code_list, trie::rate_type_t rate_type, search::SearchResult &result) {
   /** THIS SHOULD BE NEVER CALLED DIRECTLY BECAUSE IT IS NOT THREAD SAFE */
-  size_t code_length = code.length();
-  const char* c_code = code.c_str();
-  tbb::parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size()),
-    [&](const tbb::blocked_range<size_t> &r)  {
-      for (auto i = r.begin(); i != r.end(); ++i) {
-        {
-          std::lock_guard<std::mutex> lock(access_tables_mutex);
-          table_access_count++;
-        }
-        trie::p_trie_t trie = (*tables_tries)[i];
-        trie->search_code(trie, c_code, code_length, rate_type, result);
-        {
-          std::lock_guard<std::mutex> lock(access_tables_mutex);
-          table_access_count--;
-        }
-        access_tables_holder.notify_all();
+  tbb::parallel_for(tbb::blocked_range2d<size_t>(0, code_list.size(), 0, tables_tries->size()),
+    [&](const tbb::blocked_range2d<size_t> &r)  {
+      for( size_t i = r.rows().begin(); i != r.rows().end(); ++i )
+        for( size_t j = r.cols().begin(); j != r.cols().end(); ++j ) {
+          {
+            std::lock_guard<std::mutex> lock(access_tables_mutex);
+            table_access_count++;
+          }
+          unsigned long long code = code_list[i];
+          trie::p_trie_t trie = (*tables_tries)[j];
+          trie->search_code(trie, code, rate_type, result);
+          {
+            std::lock_guard<std::mutex> lock(access_tables_mutex);
+            table_access_count--;
+          }
+          access_tables_holder.notify_all();
       }
     }
   );
 }
 
-void Controller::search_code_name_rate_table(const std::string &code_name, const std::string &rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
+void Controller::search_code_name_rate_table(const std::string &code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
   if (codes->find(code_name) == codes->end())
     return;
-  unsigned long long numeric_code = (*codes)[code_name];
-  if (numeric_code == 0)
+  p_code_list_t code_list = (*codes)[code_name];
+  int index;
+  if ((index = tables_index->search_table_index(tables_index, rate_table_id)) == -1 )
     return;
-  size_t index;
-  if ((index = tables_index->search_table_index(tables_index, rate_table_id.c_str(), rate_table_id.size())) == 0 )
-    return;
-  unsigned int numeric_rate_table_id = std::strtoul(rate_table_id.c_str(), nullptr, 10);
-  if (std::to_string(numeric_rate_table_id) != rate_table_id)
-    return;
-  std::string s_code = std::to_string(numeric_code);
-  const char* code = s_code.c_str();
-  size_t code_length = s_code.size();
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);
     table_access_count++;
   }
   trie::p_trie_t trie = (*tables_tries)[index];
-  trie->search_code(trie, code, code_length, rate_type, result);
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, code_list->size()),
+    [&](const tbb::blocked_range<size_t> &r)  {
+      for (auto i = r.begin(); i != r.end(); ++i) {
+        unsigned long long code = (*code_list)[i];
+        trie->search_code(trie, code, rate_type, result);
+      }
+  });
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);
     table_access_count--;
@@ -243,29 +249,33 @@ void Controller::search_code_name_rate_table(const std::string &code_name, const
   access_tables_holder.notify_all();
 }
 
-void Controller::search_rate_table(const std::string &rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
+void Controller::search_rate_table(unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
-  size_t index;
-  if ((index = tables_index->search_table_index(tables_index, rate_table_id.c_str(), rate_table_id.size())) == 0 )
+  int index;
+  if ((index = tables_index->search_table_index(tables_index, rate_table_id)) == -1 )
     return;
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);
     table_access_count++;
   }
+  trie::p_trie_t trie = (*tables_tries)[index];
   //trie->total_search_code(trie, rate_type, result);
-  std::vector<unsigned long long > all_codes;
+  std::vector<p_code_list_t > all_codes_lists;
   for (auto it = codes->begin(); it != codes->end(); ++it)
-    all_codes.push_back(it->second);
-  tbb::parallel_for(tbb::blocked_range<size_t>(0, all_codes.size()),
+    all_codes_lists.push_back(it->second);
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, all_codes_lists.size()),
     [&](const tbb::blocked_range<size_t> &r){
       for (size_t i = r.begin(); i != r.end(); ++i) {
-        trie::p_trie_t trie = (*tables_tries)[index];
-        std::string code = std::to_string(all_codes[i]);
-        trie->search_code(trie, code.c_str(), code.size(), rate_type, result);
+        p_code_list_t code_list = all_codes_lists[i];
+        for (size_t j = 0; j < code_list->size(); ++j) {
+          unsigned long long code = (*code_list)[j];
+          trie->search_code(trie, code, rate_type, result);
+        }
       }
     });
+  all_codes_lists.clear();
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);
     table_access_count--;
@@ -278,8 +288,11 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
   std::vector<unsigned long long > all_codes;
-  for (auto it = codes->begin(); it != codes->end(); ++it)
-    all_codes.push_back(it->second);
+  for (auto it = codes->begin(); it != codes->end(); ++it) {
+    p_code_list_t code_list = it->second;
+    for (size_t i = 0; i < code_list->size(); ++i)
+      all_codes.push_back((*code_list)[i]);
+  }
   tbb::parallel_for (tbb::blocked_range2d<size_t, size_t>(0, tables_tries->size(), 0, all_codes.size()),
     [&](const tbb::blocked_range2d<size_t, size_t> &r)  {
       for (auto i = r.rows().begin(); i != r.rows().end(); ++i)
@@ -289,8 +302,8 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
             table_access_count++;
           }
           trie::p_trie_t trie = (*tables_tries)[i];
-          std::string code = std::to_string(all_codes[j]);
-          trie->search_code(trie, code.c_str(), code.size(), rate_type, result);
+          unsigned long long code = all_codes[j];
+          trie->search_code(trie, code, rate_type, result);
           {
             std::lock_guard<std::mutex> lock(access_tables_mutex);
             table_access_count--;

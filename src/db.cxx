@@ -34,29 +34,34 @@ unsigned int DB::get_refresh_minutes() {
 }
 
 unsigned int DB::get_first_rate_id(bool from_beginning) {
-  if (!from_beginning && p_conn_info->rows_to_read_debug)
-    return p_conn_info->rows_to_read_debug;
-  else {
-    pqxx::work transaction(*connections[0]);
-    std::string order = from_beginning ? "" : "desc ";
-    pqxx::result result = transaction.exec("select rate_id from rate order by rate_id " + order + "limit 1");
-    transaction.commit();
-    unsigned int ret_val;
-    if (result.empty())
-      ret_val = 0;
-    else
-      ret_val = result.begin()[0].as<unsigned int>();
-    result.clear();
-    return ret_val;
-  }
+  pqxx::work transaction(*connections[0]);
+  std::string order = from_beginning ? "" : "desc ";
+  pqxx::result result = transaction.exec("select rate_id from rate order by rate_id " + order + "limit 1");
+  transaction.commit();
+  unsigned int ret_val;
+  if (result.empty())
+    ret_val = 0;
+  else
+    ret_val = result.begin()[0].as<unsigned int>();
+  result.clear();
+  return ret_val;
 }
 
 void DB::get_new_records() {
   std::cout << "Loading rate records from the database... ";
-  unsigned int first_rate_id = get_first_rate_id();
-  unsigned int last_rate_id = get_first_rate_id(false);
+  unsigned int first_rate_id;
+  unsigned int last_rate_id;
+  if (p_conn_info->first_row_to_read_debug)
+    first_rate_id = p_conn_info->first_row_to_read_debug;
+  else
+    first_rate_id = get_first_rate_id();
+  if (p_conn_info->last_row_to_read_debug)
+    last_rate_id = p_conn_info->last_row_to_read_debug;
+  else
+    last_rate_id = get_first_rate_id(false);
   unsigned int conn_count = connections.size();
   if (conn_count == 1) {
+    std::cout << std::endl;
     query_database(0, "all", first_rate_id, last_rate_id);
   }
   else {
@@ -67,24 +72,33 @@ void DB::get_new_records() {
     std::atomic_uint last_queried_row;
     last_queried_row = first_rate_id - 1;
     tbb::mutex range_selection_mutex;
-    tbb::parallel_for (tbb::blocked_range<size_t>(0, conn_count),
-      [&](const tbb::blocked_range<size_t> &r){
-        for (size_t conn_index = r.begin(); conn_index != r.end(); ++conn_index) {
-          unsigned int range_first_rate_id;
-          unsigned int range_last_rate_id;
-          while (last_queried_row < last_rate_id) {
-            {
-              tbb::mutex::scoped_lock lock(range_selection_mutex);
-              range_first_rate_id = last_queried_row + 1;
-              range_last_rate_id = range_first_rate_id + chunk_size;
-              if (range_last_rate_id > last_rate_id)
-                range_last_rate_id = last_rate_id;
-              last_queried_row = range_last_rate_id;
-            }
-            query_database(conn_index, std::to_string(chunk_size), range_first_rate_id, range_last_rate_id);
+    tbb::task_group db_tasks;
+    std::atomic_uint tasks_running;
+    tasks_running = conn_count;
+    for (size_t conn_index = 0; conn_index < conn_count; ++conn_index)
+      db_tasks.run([&, conn_index]{
+        unsigned int range_first_rate_id;
+        unsigned int range_last_rate_id;
+        while (last_queried_row < last_rate_id) {
+          {
+            tbb::mutex::scoped_lock lock(range_selection_mutex);
+            range_first_rate_id = last_queried_row + 1;
+            range_last_rate_id = range_first_rate_id + chunk_size;
+            if (range_last_rate_id > last_rate_id)
+              range_last_rate_id = last_rate_id;
+            last_queried_row = range_last_rate_id;
           }
+          query_database(conn_index, std::to_string(chunk_size), range_first_rate_id, range_last_rate_id);
         }
+        tasks_running--;
       });
+    ctrl::p_controller_t controller = ctrl::Controller::get_controller();
+    while (tasks_running) {
+      db_data_t db_data;
+      if (db_queue.try_pop(db_data))
+        controller->insert_new_rate_data(db_data);
+    }
+    db_tasks.wait();
   }
   std::cout << "done." << std::endl;
 }
@@ -118,11 +132,11 @@ void DB::query_database(unsigned int conn_index, std::string chunk_size, int fir
         std::cout << "Inserting results from connection " << conn_index << " into memory structure... " << std::endl;
       }
       consolidate_results(result);
-      result.clear();
       remaining_retries = -1;
     } catch (std::exception &e) {
       remaining_retries--;
       tbb::mutex::scoped_lock lock(track_output_mutex2);
+      std::cout << e.what() << std::endl;
       std::cout << "Failed query at connection: " << conn_index << ". Retrying..." << std::endl;
     }
   }
@@ -133,31 +147,28 @@ void DB::query_database(unsigned int conn_index, std::string chunk_size, int fir
 
 void DB::consolidate_results(const pqxx::result &result) {
   for (pqxx::result::const_iterator row = result.begin(); row != result.end(); ++row) {
-    std::string code = row[1].as<std::string>();
-    code.erase(std::remove(code.begin(), code.end(), ' '), code.end()); //Cleaning database mess
-    if (code == "#VALUE!")  //Ignore database mess
+    db_data_t db_data;
+    std::string code_field_text = row[1].as<std::string>();
+    code_field_text.erase(std::remove(code_field_text.begin(), code_field_text.end(), ' '), code_field_text.end()); //Cleaning database mess
+    if (code_field_text == "#VALUE!")  //Ignore database mess
       continue;
-    unsigned long long numeric_code = std::strtoull(code.c_str(), nullptr, 10);
-    if (numeric_code == 0 || std::to_string(numeric_code) != code) {
-      std::cerr << "BAD code: " << code << std::endl;
-      continue;
-    }
-    std::string rate_table_id = row[0].as<std::string>();
-    unsigned int numeric_rate_table_id = std::strtoul(rate_table_id.c_str(), nullptr, 10);
-    if (numeric_rate_table_id == 0 || std::to_string(numeric_rate_table_id) != rate_table_id) {
-      std::cerr << "BAD rate table ID: " << rate_table_id << std::endl;
+    db_data.code = std::stoull(code_field_text);
+    if (db_data.code == 0 || std::to_string(db_data.code) != code_field_text) {
+      std::cerr << "BAD code: " << db_data.code << std::endl;
       continue;
     }
-    double default_rate = row[2].is_null() ? -1 : row[2].as<double>();
-    double inter_rate = row[3].is_null() ? -1 : row[3].as<double>();
-    double intra_rate = row[4].is_null() ? -1 : row[4].as<double>();
-    double local_rate = row[5].is_null() ? -1 : row[5].as<double>();
-    time_t effective_date = row[6].is_null() ? -1 : row[6].as<time_t>();
-    time_t end_date = row[7].is_null() ? -1 : row[7].as<time_t>();
-    std::string code_name = row[8].as<std::string>();
-    unsigned int egress_trunk_id = row[9].as<unsigned int>();
-    ctrl::p_controller_t controller = ctrl::Controller::get_controller();
-    controller->insert_new_rate_data(rate_table_id, numeric_rate_table_id, code, numeric_code, code_name, default_rate, inter_rate, intra_rate, local_rate, effective_date, end_date, egress_trunk_id);
+    db_data.rate_table_id = row[0].as<unsigned int>();
+    if (db_data.rate_table_id == 0)
+      continue;
+    db_data.default_rate = row[2].is_null() ? -1 : row[2].as<double>();
+    db_data.inter_rate = row[3].is_null() ? -1 : row[3].as<double>();
+    db_data.intra_rate = row[4].is_null() ? -1 : row[4].as<double>();
+    db_data.local_rate = row[5].is_null() ? -1 : row[5].as<double>();
+    db_data.effective_date = row[6].is_null() ? -1 : row[6].as<time_t>();
+    db_data.end_date = row[7].is_null() ? -1 : row[7].as<time_t>();
+    db_data.code_name = row[8].as<std::string>();
+    db_data.egress_trunk_id = row[9].as<unsigned int>();
+    db_queue.push(db_data);
   }
 }
 

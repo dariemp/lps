@@ -60,19 +60,14 @@ namespace trie {
   typedef search_node_t* p_search_node_t;
   typedef std::vector<p_search_node_t> search_nodes_t;
 
-
-
   class TrieData {
     private:
-      //p_trie_data_fields_t fields;
-      //trie_data_fields_t fields;
       uint32_t fields_bitmap;
       unsigned char fields_size;
       void** fields;
       unsigned char key_to_field_pos(trie_data_field_t key);
       template <typename T> T get_field(trie_data_field_t key);
       template <typename T> void set_field(trie_data_field_t key, T value);
-      //void set_time_field(trie_data_field_t key, time_t value);
     public:
       TrieData();
       ~TrieData();
@@ -88,7 +83,7 @@ namespace trie {
       void set_future_rate(rate_type_t rate_type, double rate);
       void set_future_effective_date(rate_type_t rate_type, time_t effective_date);
       void set_future_end_date(rate_type_t rate_type, time_t end_date);
-      size_t get_table_index();
+      int get_table_index();
       void set_table_index(size_t table_index);
       std::string get_code_name();
       void set_code_name_ptr(ctrl::p_code_pair_t code_name_ptr);
@@ -134,8 +129,7 @@ static tbb::mutex trie_insertion_mutex;
       Trie();
       ~Trie();
       static void insert_code(const p_trie_t trie,
-                              const char *code,
-                              size_t code_length,
+                              unsigned long long code,
                               ctrl::p_code_pair_t code_name_ptr,
                               unsigned int rate_table_id,
                               double default_rate,
@@ -146,10 +140,10 @@ static tbb::mutex trie_insertion_mutex;
                               time_t end_date,
                               time_t reference_time,
                               unsigned int egress_trunk_id);
-      static void search_code(const p_trie_t trie, const char *code, size_t code_length, rate_type_t rate_type, search::SearchResult &search_result);
+      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result);
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
-      static void insert_table_index(const p_trie_t trie, const char *prefix, size_t prefix_length, size_t index);
-      static size_t search_table_index(const p_trie_t trie, const char *prefix, size_t prefix_length);
+      static void insert_table_index(const p_trie_t trie, unsigned int rate_table_id, size_t index);
+      static int search_table_index(const p_trie_t trie, unsigned int rate_table_id);
   };
 
 

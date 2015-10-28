@@ -35,15 +35,15 @@ std::string TelnetSearchCode::process_command(std::string input) {
     args_t args = get_args(input);
     if (args.size() < 1)
       return "Invalid arguments.\n";
-    std::string code = args[0];
+    std::string arg_code = args[0];
     trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
     if (args.size() > 1) {
       std::string arg_rate_type = args[1];
       rate_type = trie::to_rate_type_t(arg_rate_type);
     }
-    unsigned long long numeric_code = std::stoull(code);
-    if (std::to_string(numeric_code) != code)
-      return "Invaid code.\n";
+    unsigned long long code = std::stoull(arg_code);
+    if (std::to_string(code) != arg_code)
+      return "Invalid code.\n";
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code(code, rate_type, result);
@@ -79,12 +79,15 @@ std::string TelnetSearchCodeNameAndRateTable::process_command(std::string input)
     if (args.size() < 2)
       return "Invalid arguments.\n";
     std::string code_name = args[0];
-    std::string rate_table_id = args[1];
+    std::string arg_rate_table_id = args[1];
     trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
     if (args.size() > 2) {
       std::string arg_rate_type = args[2];
       rate_type = trie::to_rate_type_t(arg_rate_type);
     }
+    unsigned int rate_table_id = stoul(arg_rate_table_id);
+    if (std::to_string(rate_table_id) != arg_rate_table_id)
+      return "Invalid rate table id.\n";
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_code_name_rate_table(code_name, rate_table_id, rate_type, result);
@@ -99,12 +102,15 @@ std::string TelnetSearchRateTable::process_command(std::string input) {
     args_t args = get_args(input);
     if (args.size() < 1)
       return "Invalid arguments.\n";
-    std::string rate_table_id = args[0];
+    std::string arg_rate_table_id = args[0];
     trie::rate_type_t rate_type = trie::rate_type_t::RATE_TYPE_DEFAULT;
     if (args.size() > 1) {
       std::string arg_rate_type = args[1];
       rate_type = trie::to_rate_type_t(arg_rate_type);
     }
+    unsigned int rate_table_id = stoul(arg_rate_table_id);
+    if (std::to_string(rate_table_id) != arg_rate_table_id)
+      return "Invalid rate table id.\n";
     search::SearchResult result;
     ctrl::p_controller_t p_controller = ctrl::Controller::get_controller();
     p_controller->search_rate_table(rate_table_id, rate_type, result);

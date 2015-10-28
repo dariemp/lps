@@ -16,11 +16,12 @@ int main(int argc, char *argv[]) {
     unsigned int connections_count = 10;
     unsigned int telnet_listen_port = 23;
     unsigned int http_listen_port = 80;
-    unsigned int rows_to_read_debug = 0;
+    unsigned int first_row_to_read_debug = 0;
+    unsigned int last_row_to_read_debug = 0;
     unsigned int refresh_minutes = 30;
     unsigned int chunk_size = 100000;
 
-    while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:r:m:k:h")) != -1) {
+    while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:f:l:m:k:h")) != -1) {
        switch (opt) {
        case 'c':
           dbhost = std::string(optarg);
@@ -46,8 +47,11 @@ int main(int argc, char *argv[]) {
        case 'w':
           http_listen_port = atoi(optarg);
           break;
-       case 'r':
-          rows_to_read_debug = atoi(optarg);
+       case 'f':
+          first_row_to_read_debug = atoi(optarg);
+          break;
+       case 'l':
+          last_row_to_read_debug = atoi(optarg);
           break;
        case 'm':
           refresh_minutes = atoi(optarg);
@@ -57,8 +61,8 @@ int main(int argc, char *argv[]) {
           break;
        default: /* '?' */
            std::cerr << "Usage: " << argv[0] << " [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword]" << std::endl;
-           std::cerr << "          [-s dbport] [-k db_chunk_size] [-t telnet_listen_port] [-w http_listen_port]" << std::endl;
-           std::cerr << "          [-n connections_count ] [-r rows_to_read_debug] [-m refresh_minutes]" << std::endl;
+           std::cerr << "          [-s dbport] [-k db_chunk_size] [-t telnet_listen_port] [-w http_listen_port] [-n connections_count]" << std::endl;
+           std::cerr << "          [-f first_row_to_read_debug] [-l last_row_to_read_debug] [-m refresh_minutes]" << std::endl;
            exit(EXIT_FAILURE);
        }
     }
@@ -74,7 +78,8 @@ int main(int argc, char *argv[]) {
     conn_info.password = dbpassword;
     conn_info.port = dbport;
     conn_info.conn_count = connections_count;
-    conn_info.rows_to_read_debug = rows_to_read_debug;
+    conn_info.first_row_to_read_debug = first_row_to_read_debug;
+    conn_info.last_row_to_read_debug = last_row_to_read_debug;
     conn_info.refresh_minutes = refresh_minutes;
     conn_info.chunk_size = chunk_size;
     unsigned int num_thread = tbb::task_scheduler_init::default_num_threads();
