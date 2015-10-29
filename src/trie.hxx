@@ -140,7 +140,7 @@ static tbb::mutex trie_insertion_mutex;
                               time_t end_date,
                               time_t reference_time,
                               unsigned int egress_trunk_id);
-      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result);
+      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, bool check_special_case, search::SearchResult &search_result);
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
       static void insert_table_index(const p_trie_t trie, unsigned int rate_table_id, size_t index);
       static int search_table_index(const p_trie_t trie, unsigned int rate_table_id);

@@ -117,6 +117,7 @@ void DB::query_database(unsigned int conn_index, std::string chunk_size, int fir
       query += "extract(epoch from effective_date) as effective_date, ";
       query += "extract(epoch from end_date) as end_date, ";
       query += "code.name as code_name, ";
+      //query += "code_name, ";
       query += "resource.resource_id as egress_trunk_id ";
       query += "from rate ";
       query += "join code using (code) ";
@@ -152,13 +153,21 @@ void DB::consolidate_results(const pqxx::result &result) {
     code_field_text.erase(std::remove(code_field_text.begin(), code_field_text.end(), ' '), code_field_text.end()); //Cleaning database mess
     if (code_field_text == "#VALUE!")  //Ignore database mess
       continue;
-    db_data.code = std::stoull(code_field_text);
+    try {
+      db_data.code = std::stoull(code_field_text);
+    }
+    catch (std::exception &e) {
+      std::cerr << "BAD code: " << code_field_text << std::endl;
+      continue;
+    }
     if (db_data.code == 0 || std::to_string(db_data.code) != code_field_text) {
-      std::cerr << "BAD code: " << db_data.code << std::endl;
+      std::cerr << "BAD code: " << code_field_text << std::endl;
       continue;
     }
     db_data.rate_table_id = row[0].as<unsigned int>();
     if (db_data.rate_table_id == 0)
+      continue;
+    if (row[8].is_null())
       continue;
     db_data.default_rate = row[2].is_null() ? -1 : row[2].as<double>();
     db_data.inter_rate = row[3].is_null() ? -1 : row[3].as<double>();

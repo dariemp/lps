@@ -10,6 +10,8 @@ namespace ctrl {
   typedef std::pair<const std::string, p_code_list_t> code_pair_t;
   typedef code_pair_t* p_code_pair_t;
   typedef codes_t* p_codes_t;
+
+  void str_to_upper(std::string &str);
 }
 
 namespace trie {

@@ -1,9 +1,7 @@
 #include "shared.hxx"
 #include "exceptions.hxx"
 
-using namespace trie;
-
-rate_type_t trie::to_rate_type_t(std::string rate_type){
+trie::rate_type_t trie::to_rate_type_t(std::string rate_type){
   if (rate_type == "inter")
     return rate_type_t::RATE_TYPE_INTER;
   else if (rate_type == "intra")
@@ -27,4 +25,8 @@ std::string trie::rate_type_to_string(rate_type_t rate_type) {
     return "default";
   else
     throw RestRequestArgException();
+}
+
+void ctrl::str_to_upper(std::string &str) {
+  std::transform(str.begin(), str.end(),str.begin(), ::toupper);
 }
