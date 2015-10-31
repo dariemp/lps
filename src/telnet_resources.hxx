@@ -1,5 +1,5 @@
-#ifndef TELNET_RESOURCES_H
-#define TELNET_RESOURCES_H
+#ifndef TELNET_RESOURCES_HXX
+#define TELNET_RESOURCES_HXX
 
 #include <string>
 #include <vector>

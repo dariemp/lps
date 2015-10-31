@@ -1,5 +1,6 @@
 #include "controller.hxx"
 #include "db.hxx"
+#include "logger.hxx"
 #include <iostream>
 #include <unistd.h>
 #include <tbb/tbb.h>
@@ -18,7 +19,7 @@ int main(int argc, char *argv[]) {
     unsigned int http_listen_port = 80;
     unsigned int first_row_to_read_debug = 0;
     unsigned int last_row_to_read_debug = 0;
-    unsigned int refresh_minutes = 30;
+    unsigned int refresh_minutes = 60;
     unsigned int chunk_size = 100000;
 
     while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:f:l:m:k:h")) != -1) {
@@ -60,17 +61,17 @@ int main(int argc, char *argv[]) {
           chunk_size = atoi(optarg);
           break;
        default: /* '?' */
-           std::cerr << "Usage: " << argv[0] << " [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword]" << std::endl;
-           std::cerr << "          [-s dbport] [-k db_chunk_size] [-t telnet_listen_port] [-w http_listen_port] [-n connections_count]" << std::endl;
-           std::cerr << "          [-f first_row_to_read_debug] [-l last_row_to_read_debug] [-m refresh_minutes]" << std::endl;
+           ctrl::error("Usage: " + std::string(argv[0]) + " [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword]\n");
+           ctrl::error("          [-s dbport] [-k db_chunk_size] [-t telnet_listen_port] [-w http_listen_port] [-n connections_count]\n");
+           ctrl::error("          [-f first_row_to_read_debug] [-l last_row_to_read_debug] [-m refresh_minutes]\n");
            exit(EXIT_FAILURE);
        }
     }
     if (connections_count < 1) {
-      std::cerr << "At least one connection to database is needed to run." << std::endl;
+      ctrl::error("At least one connection to database is needed to run.\n");
       exit(EXIT_FAILURE);
     }
-    std::cout << "Starting..." << std::endl;
+    ctrl::log("Starting...\n");
     db::ConnectionInfo conn_info;
     conn_info.host = dbhost;
     conn_info.dbname = dbname;
@@ -91,7 +92,7 @@ int main(int argc, char *argv[]) {
     controller->start_workflow();
     return 0;
   } catch (std::exception &e) {
-    std::cerr << e.what() << std::endl;
+    ctrl::error(std::string(e.what()) + "\n");
     return 1;
   }
 }

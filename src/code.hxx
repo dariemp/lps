@@ -1,4 +1,8 @@
+#ifndef CODE_HXX
+#define CODE_HXX
+
 namespace trie {
+
   class Code {
     private:
       long long current_code;
@@ -9,3 +13,5 @@ namespace trie {
       bool has_more_digits();
   };
 }
+
+#endif

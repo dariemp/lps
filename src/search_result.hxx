@@ -1,20 +1,16 @@
-#ifndef SEARCH_RESULT_H
-#define SEARCH_RESULT_H
+#ifndef SEARCH_RESULT_HXX
+#define SEARCH_RESULT_HXX
 
 #include "shared.hxx"
 #include <tbb/tbb.h>
 
 namespace search {
 
-  class SearchResultElement;
-  typedef std::vector<SearchResultElement*> search_result_elements_t;
-  typedef search_result_elements_t* p_search_result_elements_t;
-
   class SearchResultElement {
     private:
       unsigned long long code;
       std::string code_name;
-      unsigned int rate_table_id;
+      unsigned long long rate_table_id;
       trie::rate_type_t rate_type;
       double current_min_rate;
       double current_max_rate;
@@ -28,7 +24,7 @@ namespace search {
     public:
       SearchResultElement(unsigned long long code,
                           std::string code_name,
-                          unsigned int rate_table_id,
+                          unsigned long long rate_table_id,
                           trie::rate_type_t rate_type,
                           double current_min_rate,
                           double current_max_rate,
@@ -41,7 +37,7 @@ namespace search {
                           unsigned int egress_trunk_id);
       unsigned long long get_code();
       std::string get_code_name();
-      unsigned int get_rate_table_id();
+      unsigned long long get_rate_table_id();
       trie::rate_type_t get_rate_type();
       double get_current_min_rate();
       double get_current_max_rate();
@@ -56,6 +52,8 @@ namespace search {
 
   class SearchResult {
     private:
+      typedef std::vector<SearchResultElement*> search_result_elements_t;
+      typedef search_result_elements_t* p_search_result_elements_t;
       tbb::mutex search_insertion_mutex;
       p_search_result_elements_t data;
       void convert_date(time_t epoch_date, std::string &readable_date);
@@ -65,7 +63,7 @@ namespace search {
       SearchResultElement* operator [](size_t index) const;
       void insert(unsigned long long code,
                   std::string code_name,
-                  unsigned int rate_table_id,
+                  unsigned long long rate_table_id,
                   trie::rate_type_t rate_type,
                   double current_min_rate,
                   double current_max_rate,

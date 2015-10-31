@@ -1,5 +1,5 @@
-#ifndef TELNET_H
-#define TELNET_H
+#ifndef TELNET_HXX
+#define TELNET_HXX
 
 #include "telnet_resources.hxx"
 #include <sys/epoll.h>
@@ -11,18 +11,17 @@
 
 namespace telnet {
 
-  typedef std::unordered_map<int, telnet_t*> telnet_ctxs_t;
-  typedef telnet_ctxs_t* p_telnet_ctxs_t;
-  typedef std::queue<std::string*> output_queue_t;
-  typedef output_queue_t* p_output_queue_t;
-  typedef std::unordered_map<int, p_output_queue_t> outputs_t;
-  typedef outputs_t* p_outputs_t;
-  typedef std::unordered_map<std::string, TelnetResource*> telnet_resources_t;
-  typedef telnet_resources_t* p_telnet_resources_t;
-
 
   class Telnet {
     private:
+      typedef std::unordered_map<int, telnet_t*> telnet_ctxs_t;
+      typedef telnet_ctxs_t* p_telnet_ctxs_t;
+      typedef std::queue<std::string*> output_queue_t;
+      typedef output_queue_t* p_output_queue_t;
+      typedef std::unordered_map<int, p_output_queue_t> outputs_t;
+      typedef outputs_t* p_outputs_t;
+      typedef std::unordered_map<std::string, TelnetResource*> telnet_resources_t;
+      typedef telnet_resources_t* p_telnet_resources_t;
       int epollfd;
       p_telnet_ctxs_t telnet_ctxs;
       p_outputs_t outputs;

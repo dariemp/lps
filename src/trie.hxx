@@ -1,8 +1,8 @@
 /**
       Prefix Tree (also known as Trie)
 */
-#ifndef TRIE_H
-#define TRIE_H
+#ifndef TRIE_HXX
+#define TRIE_HXX
 
 #include "search_result.hxx"
 #include "shared.hxx"
@@ -45,7 +45,8 @@ namespace trie {
     INTER_RATE_EGRESS_TRUNK_ID       = 0x00000008,
     INTRA_RATE_EGRESS_TRUNK_ID       = 0x00000004,
     LOCAL_RATE_EGRESS_TRUNK_ID       = 0x00000002,
-    EMPTY_FLAG                       = 0x00000001,
+    WORKER_INDEX                     = 0x00000001,
+    EMPTY_FLAG                       = 0x00000000,
   };
 
   typedef TrieData* p_trie_data_t;
@@ -100,17 +101,18 @@ static tbb::mutex trie_insertion_mutex;
   */
   class Trie {
     private:
-      p_trie_data_t data;
+      unsigned int worker_index;
       uint16_t children_bitmap;
       unsigned char children_size;
+      p_trie_data_t data;
       p_trie_t* children;
       uint16_t index_to_mask(unsigned char index);
       unsigned char index_to_child_pos(unsigned char index);
       p_trie_data_t get_data();
       bool has_child(unsigned char index);
       p_trie_t get_child(unsigned char index);
-      p_trie_t insert_child(unsigned char index);
-      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr, unsigned int gress_trunk_id);
+      p_trie_t insert_child(unsigned int worker_index, unsigned char index);
+      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr, unsigned int egress_trunk_id);
       void set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date);
       static void total_search_update_vars(const p_trie_t &current_trie,
                                            const search_nodes_t &nodes,
@@ -126,9 +128,11 @@ static tbb::mutex trie_insertion_mutex;
                                            time_t &future_effective_date,
                                            time_t &future_end_date);
     public:
-      Trie();
+      Trie(unsigned int worker_index);
       ~Trie();
+      unsigned int get_worker_index();
       static void insert_code(const p_trie_t trie,
+                              unsigned int worker_index,
                               unsigned long long code,
                               ctrl::p_code_pair_t code_name_ptr,
                               unsigned int rate_table_id,
@@ -142,7 +146,7 @@ static tbb::mutex trie_insertion_mutex;
                               unsigned int egress_trunk_id);
       static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, bool check_special_case, search::SearchResult &search_result);
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
-      static void insert_table_index(const p_trie_t trie, unsigned int rate_table_id, size_t index);
+      static void insert_table_index(const p_trie_t trie, unsigned int worker_index, unsigned int rate_table_id, size_t index);
       static int search_table_index(const p_trie_t trie, unsigned int rate_table_id);
   };
 

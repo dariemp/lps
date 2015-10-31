@@ -1,3 +1,6 @@
+#ifndef REST_HXX
+#define REST_HXX
+
 #include <httpserver.hpp>
 
 using namespace httpserver;
@@ -9,3 +12,5 @@ namespace rest {
       void run_server(unsigned int http_listen_port);
   };
 }
+
+#endif

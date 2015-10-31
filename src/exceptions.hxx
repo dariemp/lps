@@ -1,5 +1,5 @@
-#ifndef EXCEPTIONS_H
-#define EXCEPTIONS_H
+#ifndef EXCEPTIONS_HXX
+#define EXCEPTIONS_HXX
 #include <exception>
 
 class TrieInvalidPrefixLengthException : public std::exception {
@@ -55,6 +55,13 @@ class TrieCollisionDifferentRateException : public std::exception {
   virtual const char* what() const throw()
     {
       return "Collition detected while inserting new data in the prefix tree: same prefix, different rate";
+    }
+};
+
+class WorkerReleaseLeakException : public std::exception {
+  virtual const char* what() const throw()
+    {
+      return "Internal Error: Trying to release memory in the wrong worker thread";
     }
 };
 

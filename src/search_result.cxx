@@ -4,7 +4,7 @@
 
 using namespace search;
 
-SearchResultElement::SearchResultElement(unsigned long long code, std::string code_name, unsigned int rate_table_id, trie::rate_type_t rate_type,
+SearchResultElement::SearchResultElement(unsigned long long code, std::string code_name, unsigned long long rate_table_id, trie::rate_type_t rate_type,
       double current_min_rate, double current_max_rate, double future_min_rate, double future_max_rate,
       time_t effective_date, time_t end_date, time_t future_effective_date, time_t future_end_date, unsigned int egress_trunk_id)
         : code(code),
@@ -29,7 +29,7 @@ std::string SearchResultElement::get_code_name() {
   return code_name;
 }
 
-unsigned int SearchResultElement::get_rate_table_id() {
+unsigned long long SearchResultElement::get_rate_table_id() {
   return rate_table_id;
 }
 
@@ -90,7 +90,7 @@ SearchResultElement* SearchResult::operator [](size_t index) const {
 
 void SearchResult::insert(unsigned long long code,
                           std::string code_name,
-                          unsigned int rate_table_id,
+                          unsigned long long rate_table_id,
                           trie::rate_type_t rate_type,
                           double current_min_rate,
                           double current_max_rate,

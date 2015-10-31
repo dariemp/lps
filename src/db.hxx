@@ -1,5 +1,5 @@
-#ifndef DB_H
-#define DB_H
+#ifndef DB_HXX
+#define DB_HXX
 
 #include <tbb/tbb.h>
 #include <pqxx/pqxx>
@@ -12,10 +12,9 @@ namespace db {
   class DB;
   typedef ConnectionInfo* p_conn_info_t;
   typedef DB* p_db_t;
-  typedef pqxx::connection* p_connection_t;
-  typedef tbb::concurrent_vector<p_connection_t> connections_t;
 
   typedef struct {
+    unsigned int conn_index;
     unsigned int rate_table_id;
     unsigned long long code;
     std::string code_name;
@@ -27,7 +26,7 @@ namespace db {
     time_t end_date;
     unsigned int egress_trunk_id;
   } db_data_t;
-  typedef tbb::concurrent_bounded_queue<db_data_t> db_queue_t;
+  typedef tbb::concurrent_queue<db_data_t> db_queue_t;
 
   class ConnectionInfo {
     public:
@@ -40,24 +39,31 @@ namespace db {
       unsigned int first_row_to_read_debug;
       unsigned int last_row_to_read_debug;
       unsigned int refresh_minutes;
-      unsigned int chunk_size;
+      unsigned long long chunk_size;
   };
 
   class DB {
     private:
-      tbb::mutex track_output_mutex1;
-      tbb::mutex track_output_mutex2;
+      typedef pqxx::connection* p_connection_t;
+      typedef tbb::concurrent_vector<p_connection_t> connections_t;
+      std::atomic_bool reading;
+      std::atomic_uint reading_count;
+      unsigned int first_rate_id;
+      unsigned int last_rate_id;
+      std::atomic_uint last_queried_row;
       p_conn_info_t p_conn_info;
       connections_t connections;
-      db_queue_t db_queue;
       unsigned int get_first_rate_id(bool from_beginning=true);
-      void query_database(unsigned int conn_index, const std::string chunk_size, int first_rate_id, unsigned int last_rate_id);
-      void consolidate_results(const pqxx::result &result);
+      void query_database(unsigned int conn_index, unsigned long long chunk_size, unsigned int  first_rate_id, unsigned int last_rate_id);
+      void consolidate_results(unsigned int conn_index, const pqxx::result &result);
     public:
       DB(ConnectionInfo &conn_info);
       ~DB();
-      unsigned int get_refresh_minutes();
-      void get_new_records();
+      void init_load_cicle();
+      void wait_for_reading();
+      void wait_till_next_load_cicle(time_t reference_time);
+      void read_chunk(unsigned int conn_index);
+      bool is_reading();
       void insert_code_name_rate_table_rate(const search::SearchResult &search_result);
   };
 }

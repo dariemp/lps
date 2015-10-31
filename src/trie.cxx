@@ -39,7 +39,7 @@ template <typename T> T TrieData::get_field(trie_data_field_t key) {
 }
 
 namespace trie {
-  template <> unsigned TrieData::get_field<unsigned int>(trie_data_field_t key) {
+  template <> unsigned int TrieData::get_field<unsigned int>(trie_data_field_t key) {
     if (fields_bitmap & key)
       return *(int*)fields[key_to_field_pos(key)];
     else
@@ -324,12 +324,12 @@ void TrieData::set_rate_table_id(unsigned int rate_table_id) {
   set_field<unsigned int>(RATE_TABLE_ID, rate_table_id);
 }
 
-Trie::Trie() {
-  children_bitmap = 0;
-  children_size = 0;
-  children = nullptr;
-  data = new TrieData();
-}
+Trie::Trie(unsigned int worker_index)
+  : worker_index(worker_index),
+    children_bitmap(0),
+    children_size(0),
+    data(new TrieData()),
+    children(nullptr) {}
 
 Trie::~Trie() {
   size_t count = children_size / sizeof(p_trie_t);
@@ -337,6 +337,10 @@ Trie::~Trie() {
     delete children[i];
   free(children);
   delete data;
+}
+
+unsigned int Trie::get_worker_index() {
+  return worker_index;
 }
 
 p_trie_data_t Trie::get_data() {
@@ -390,7 +394,7 @@ p_trie_t Trie::get_child(unsigned char index) {
   return children[index_to_child_pos(index)];
 }
 
-p_trie_t Trie::insert_child(unsigned char index) {
+p_trie_t Trie::insert_child(unsigned int worker_index, unsigned char index) {
   if (index < 0 || index > 9)
     throw TrieInvalidChildIndexException();
   children_size += sizeof(p_trie_t);
@@ -399,7 +403,7 @@ p_trie_t Trie::insert_child(unsigned char index) {
   unsigned char child_pos = index_to_child_pos(index);
   for (size_t i = count - 1; i > child_pos; --i)
     children[i] = children[i-1];
-  children[child_pos] = new Trie();
+  children[child_pos] = new Trie(worker_index);
   uint16_t child_mask = index_to_mask(index);
   children_bitmap |= child_mask;
   return children[child_pos];
@@ -409,6 +413,7 @@ p_trie_t Trie::insert_child(unsigned char index) {
     Inserts rate data in the prefix tree at the correct prefix location
 */
 void Trie::insert_code(const p_trie_t trie,
+                       unsigned int worker_index,
                        unsigned long long code,
                        ctrl::p_code_pair_t code_name_ptr,
                        unsigned int rate_table_id,
@@ -435,7 +440,7 @@ void Trie::insert_code(const p_trie_t trie,
     if (current_trie->has_child(child_index))
       current_trie = current_trie->get_child(child_index);
     else
-      current_trie = current_trie->insert_child(child_index);
+      current_trie = current_trie->insert_child(worker_index, child_index);
   }
   p_trie_data_t trie_data = current_trie->get_data();
   for (int i = RATE_TYPE_DEFAULT; i <= RATE_TYPE_LOCAL; i++) {
@@ -660,7 +665,7 @@ void Trie::total_search_update_vars(const p_trie_t &current_trie,
   }
 }
 
-void Trie::insert_table_index(const p_trie_t trie, unsigned int rate_table_id, size_t index) {
+void Trie::insert_table_index(const p_trie_t trie, unsigned int worker_index, unsigned int rate_table_id, size_t index) {
   tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
   p_trie_t current_trie = trie;
   Code dyn_rate_table_id(rate_table_id);
@@ -669,7 +674,7 @@ void Trie::insert_table_index(const p_trie_t trie, unsigned int rate_table_id, s
     if (current_trie->has_child(child_index))
       current_trie = current_trie->get_child(child_index);
     else
-      current_trie = current_trie->insert_child(child_index);
+      current_trie = current_trie->insert_child(worker_index, child_index);
   }
   p_trie_data_t trie_data = current_trie->get_data();
   trie_data->set_table_index(index);

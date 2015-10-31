@@ -1,7 +1,8 @@
-#ifndef SHARED_H
-#define SHARED_H
+#ifndef SHARED_HXX
+#define SHARED_HXX
 
 #include <tbb/tbb.h>
+#include <thread>
 
 namespace ctrl {
   typedef tbb::concurrent_vector<unsigned long long> code_list_t;

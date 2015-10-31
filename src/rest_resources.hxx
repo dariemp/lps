@@ -1,3 +1,6 @@
+#ifndef REST_RESOURCES_HXX
+#define REST_RESOURCES_HXX
+
 #include <httpserver.hpp>
 
 using namespace httpserver;
@@ -30,3 +33,5 @@ namespace rest {
   };
 
 }
+
+#endif
