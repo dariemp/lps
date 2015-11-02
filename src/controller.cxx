@@ -159,15 +159,15 @@ void Controller::run_telnet_server() {
 void Controller::create_table_tries() {
   database = new db::DB(*conn_info);
   reference_time = time(nullptr);
-  database->init_load_cicle();
+  database->init_load_cicle(reference_time);
   update_rate_tables_tries();
 }
 
 void Controller::update_table_tries() {
   while (true) {
-    database->wait_till_next_load_cicle(reference_time);
+    database->wait_till_next_load_cicle();
     reference_time = time(nullptr);
-    database->init_load_cicle();
+    database->init_load_cicle(reference_time);
     update_rate_tables_tries();
   }
 }
@@ -201,29 +201,36 @@ void Controller::insert_new_rate_data(db::db_data_t db_data) {
   codes_t::iterator it = new_codes->end();
   str_to_upper(db_data.code_name);
   {
-    tbb::mutex::scoped_lock lock(table_insertion_mutex);
+    tbb::mutex::scoped_lock lock(table_index_insertion_mutex);
     if ((table_index = new_tables_index->search_table_index(new_tables_index, db_data.rate_table_id)) == -1) {
       new_tables_tries->push_back(new trie::Trie(db_data.conn_index));
       table_index = new_tables_tries->size()-1;
       new_tables_index->insert_table_index(new_tables_index, db_data.conn_index, db_data.rate_table_id, table_index);
     }
+  }
+  {
+    tbb::mutex::scoped_lock lock(code_name_creation_mutex);
     if ((it = new_codes->find(db_data.code_name)) == new_codes->end()) {
       (*new_codes)[db_data.code_name] = new code_list_t();
       (*new_codes)[db_data.code_name]->push_back(db_data.conn_index);
     }
-    if (db_data.code != 0) {
-      size_t i = 0;
-      p_code_list_t code_list = (*new_codes)[db_data.code_name];
-      while (i < code_list->size() && db_data.code != (*code_list)[i]) i++;
-      if (i == code_list->size())
-        (*new_codes)[db_data.code_name]->push_back(db_data.code);
-    }
+  }
+  size_t i = 0;
+  p_code_list_t code_list = (*new_codes)[db_data.code_name];
+  {
+    tbb::mutex::scoped_lock lock(code_insertion_mutex);
+    while (i < code_list->size() && db_data.code != (*code_list)[i]) i++;
+    if (i == code_list->size())
+      (*new_codes)[db_data.code_name]->push_back(db_data.code);
   }
   if (it == new_codes->end())
     it = new_codes->find(db_data.code_name);
   p_code_pair_t code_name_ptr =  &(*it);
   trie::p_trie_t trie = (*new_tables_tries)[table_index];
-  trie->insert_code(trie, db_data.conn_index, db_data.code, code_name_ptr, db_data.rate_table_id, db_data.default_rate, db_data.inter_rate, db_data.intra_rate, db_data.local_rate, db_data.effective_date, db_data.end_date, reference_time, db_data.egress_trunk_id);
+  {
+    tbb::mutex::scoped_lock lock(*trie->get_mutex());
+    trie->insert_code(trie, db_data.conn_index, db_data.code, code_name_ptr, db_data.rate_table_id, db_data.default_rate, db_data.inter_rate, db_data.intra_rate, db_data.local_rate, db_data.effective_date, db_data.end_date, reference_time, db_data.egress_trunk_id);
+  }
 }
 
 bool Controller::are_tables_available() {

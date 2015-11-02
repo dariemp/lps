@@ -27,7 +27,9 @@ namespace ctrl {
       tries_release_queues_t tries_release_queues;
       codes_release_queues_t codes_release_queues;
       time_t reference_time;
-      tbb::mutex table_insertion_mutex;
+      tbb::mutex table_index_insertion_mutex;
+      tbb::mutex code_name_creation_mutex;
+      tbb::mutex code_insertion_mutex;
       std::mutex update_tables_mutex;
       std::mutex access_tables_mutex;
       std::condition_variable update_tables_holder;

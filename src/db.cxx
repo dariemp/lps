@@ -10,7 +10,7 @@
 
 using namespace db;
 
-DB::DB(ConnectionInfo &conn_info) : reading(false), reading_count(0) {
+DB::DB(ConnectionInfo &conn_info) : reading(false), reading_count(0), reference_time(-1) {
   p_conn_info = &conn_info;
   if (conn_info.conn_count < 1)
     throw DBNoConnectionsException();
@@ -46,8 +46,9 @@ unsigned int DB::get_first_rate_id(bool from_beginning) {
   return ret_val;
 }
 
-void DB::init_load_cicle() {
+void DB::init_load_cicle(time_t reference_time) {
   ctrl::log("Loading rate records from the database in parallel... \n");
+  this->reference_time = reference_time;
   if (p_conn_info->first_row_to_read_debug)
     first_rate_id = p_conn_info->first_row_to_read_debug;
   else
@@ -91,18 +92,20 @@ void DB::query_database(unsigned int conn_index, unsigned long long chunk_size, 
       pqxx::work transaction(*connections[conn_index]);
       ctrl::log("Reading " + std::to_string(chunk_size) + " records through connection: " + std::to_string(conn_index) + ", from rate_id: " + std::to_string(first_rate_id) + " to rate_id: " + std::to_string(last_rate_id) + "\n");
       std::string query;
-      query =  "select rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
+      query =  "select distinct rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
       query += "extract(epoch from effective_date) as effective_date, ";
       query += "extract(epoch from end_date) as end_date, ";
       //query += "code.name as code_name, ";
       query += "code_name, ";
-      query += "resource.resource_id as egress_trunk_id ";
+      query += "resource.resource_id as egress_trunk_id, ";
+      query += "rate_id ";
       query += "from rate ";
       //query += "join code using (code) ";
       query += "join resource using (rate_table_id) ";
       query += "where resource.active=true and resource.egress=true";
       query += " and rate_id between " + transaction.quote(first_rate_id);
       query += " and " + transaction.quote(last_rate_id);
+      query += " and (end_date is null or end_date > to_timestamp(" + std::to_string(reference_time) + "))";
       query += " order by rate_id";
       pqxx::result result = transaction.exec(query);
       ctrl::log("Inserting results from connection " + std::to_string(conn_index) + " into memory structure...\n");
@@ -195,7 +198,7 @@ void DB::wait_for_reading() {
     std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
-void DB::wait_till_next_load_cicle(time_t reference_time) {
+void DB::wait_till_next_load_cicle() {
   wait_for_reading();
   time_t seconds = (p_conn_info->refresh_minutes * 60) - (time(nullptr) - reference_time);
   if (seconds <= 0) {

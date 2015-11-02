@@ -94,13 +94,12 @@ namespace trie {
       void set_rate_table_id(unsigned int rate_table_id);
   };
 
-
-static tbb::mutex trie_insertion_mutex;
   /**
       Prefix tree (trie) that stores rates and timestamps
   */
   class Trie {
     private:
+      tbb::mutex trie_insertion_mutex;
       unsigned int worker_index;
       uint16_t children_bitmap;
       unsigned char children_size;
@@ -130,6 +129,7 @@ static tbb::mutex trie_insertion_mutex;
     public:
       Trie(unsigned int worker_index);
       ~Trie();
+      tbb::mutex* get_mutex();
       unsigned int get_worker_index();
       static void insert_code(const p_trie_t trie,
                               unsigned int worker_index,

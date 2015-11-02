@@ -409,6 +409,10 @@ p_trie_t Trie::insert_child(unsigned int worker_index, unsigned char index) {
   return children[child_pos];
 }
 
+tbb::mutex* Trie::get_mutex() {
+  return &trie_insertion_mutex;
+}
+
 /**
     Inserts rate data in the prefix tree at the correct prefix location
 */
@@ -425,7 +429,6 @@ void Trie::insert_code(const p_trie_t trie,
                        time_t end_date,
                        time_t reference_time,
                        unsigned int egress_trunk_id) {
-  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
   p_trie_data_t root_data = trie->get_data();
   unsigned int root_rate_table_id = root_data->get_rate_table_id();
   if (root_rate_table_id == 0)
@@ -666,7 +669,6 @@ void Trie::total_search_update_vars(const p_trie_t &current_trie,
 }
 
 void Trie::insert_table_index(const p_trie_t trie, unsigned int worker_index, unsigned int rate_table_id, size_t index) {
-  tbb::mutex::scoped_lock lock(trie_insertion_mutex);  // One thread at a time, please
   p_trie_t current_trie = trie;
   Code dyn_rate_table_id(rate_table_id);
   while (dyn_rate_table_id.has_more_digits()) {

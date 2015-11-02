@@ -48,6 +48,7 @@ namespace db {
       typedef tbb::concurrent_vector<p_connection_t> connections_t;
       std::atomic_bool reading;
       std::atomic_uint reading_count;
+      time_t reference_time;
       unsigned int first_rate_id;
       unsigned int last_rate_id;
       std::atomic_uint last_queried_row;
@@ -59,9 +60,9 @@ namespace db {
     public:
       DB(ConnectionInfo &conn_info);
       ~DB();
-      void init_load_cicle();
+      void init_load_cicle(time_t reference_time);
       void wait_for_reading();
-      void wait_till_next_load_cicle(time_t reference_time);
+      void wait_till_next_load_cicle();
       void read_chunk(unsigned int conn_index);
       bool is_reading();
       void insert_code_name_rate_table_rate(const search::SearchResult &search_result);
