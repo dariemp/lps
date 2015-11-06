@@ -1,6 +1,7 @@
 #include "trie.hxx"
 #include "code.hxx"
 #include "exceptions.hxx"
+#include "logger.hxx"
 #include <algorithm>
 #include <iostream>
 
@@ -266,12 +267,12 @@ void TrieData::set_table_index(size_t table_index) {
 
 std::string TrieData::get_code_name() {
   if (fields_bitmap & CODE_NAME_ADDRESS)
-    return *(std::string*)fields[key_to_field_pos(CODE_NAME_ADDRESS)];
+    return ((ctrl::p_code_pair_t)fields[key_to_field_pos(CODE_NAME_ADDRESS)])->first;
   else
     return "";
 }
 
-void TrieData::set_code_name_ptr(ctrl::p_code_pair_t code_name_ptr) {
+void TrieData::set_code_name(ctrl::p_code_pair_t code_item) {
   unsigned char field_pos = key_to_field_pos(CODE_NAME_ADDRESS);
   if ((fields_bitmap & CODE_NAME_ADDRESS) == 0) {
     fields_size += sizeof(void*);
@@ -281,7 +282,7 @@ void TrieData::set_code_name_ptr(ctrl::p_code_pair_t code_name_ptr) {
       fields[i] = fields[i-1];
     fields_bitmap |= CODE_NAME_ADDRESS;
   }
-  fields[field_pos] = code_name_ptr;
+  fields[field_pos] = code_item;
 }
 
 void TrieData::set_egress_trunk_id(rate_type_t rate_type, unsigned int egress_trunk_id) {
@@ -347,11 +348,11 @@ p_trie_data_t Trie::get_data() {
   return data;
 }
 
-void Trie::set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr, unsigned int egress_trunk_id) {
+void Trie::set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id) {
   data->set_current_rate(rate_type, rate);
   data->set_current_effective_date(rate_type, effective_date);
   data->set_current_end_date(rate_type, end_date);
-  data->set_code_name_ptr(code_name_ptr);
+  data->set_code_name(code_item);
   data->set_egress_trunk_id(rate_type, egress_trunk_id);
 }
 
@@ -419,7 +420,7 @@ tbb::mutex* Trie::get_mutex() {
 void Trie::insert_code(const p_trie_t trie,
                        unsigned int worker_index,
                        unsigned long long code,
-                       ctrl::p_code_pair_t code_name_ptr,
+                       ctrl::p_code_pair_t code_item,
                        unsigned int rate_table_id,
                        double default_rate,
                        double inter_rate,
@@ -436,7 +437,6 @@ void Trie::insert_code(const p_trie_t trie,
   else if (root_rate_table_id != rate_table_id)
     throw TrieWrongRateTableException();
   p_trie_t current_trie = trie;
-  //long long dyn_code = code;
   Code dyn_code(code);
   while (dyn_code.has_more_digits()) {
     unsigned char child_index = dyn_code.next_digit();
@@ -470,7 +470,7 @@ void Trie::insert_code(const p_trie_t trie,
     if (rate <= 0) continue;  //Don't update rate data if it is inexistent
     if ( effective_date <= reference_time && effective_date > old_current_effective_date &&
         (end_date <= 0 || end_date >= reference_time))
-      current_trie->set_current_data(rate_type, rate, effective_date, end_date, code_name_ptr, egress_trunk_id);
+      current_trie->set_current_data(rate_type, rate, effective_date, end_date, code_item, egress_trunk_id);
     if ( effective_date > reference_time &&
         (old_future_effective_date <= 0 || effective_date < old_future_effective_date))
       current_trie->set_future_data(rate_type, rate, effective_date, end_date);
@@ -480,7 +480,7 @@ void Trie::insert_code(const p_trie_t trie,
 /**
     Longest prefix search implementation... sort of
 */
-void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, bool check_special_case, search::SearchResult &search_result) {
+void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result) {
   unsigned int rate_table_id = trie->get_data()->get_rate_table_id();
   p_trie_t current_trie = trie;
   unsigned long long code_found = 0, current_code = 0;
@@ -501,8 +501,6 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
     if (current_trie->has_child(child_index)) {         // If we have a child node, move to it so we can search the longest prefix
       current_trie = current_trie->get_child(child_index);
       current_code =  current_code * 10 + child_index;
-      if (check_special_case && current_code == 1)
-        continue;
       p_trie_data_t data = current_trie->get_data();
       double data_current_rate = data->get_current_rate(rate_type);
       time_t data_current_effective_date = data->get_current_effective_date(rate_type);
@@ -514,14 +512,11 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
         if (current_min_rate <=0 || data_current_rate < current_min_rate)
           current_min_rate = data_current_rate;
         if (current_max_rate <=0 || data_current_rate > current_max_rate) {
-          code_name = data->get_code_name();
-          if (check_special_case && code_name[0] == 'U')
-            continue;
           code_found = current_code;
+          code_name = data->get_code_name();
           current_max_rate = data_current_rate;
           current_effective_date = data_current_effective_date;
           current_end_date = data_current_end_date;
-          code_name = data->get_code_name();
           egress_trunk_id = data->get_egress_trunk_id(rate_type);
           if (future_min_rate <=0 || data_future_rate < future_min_rate)
             future_min_rate = data_future_rate;
@@ -668,7 +663,7 @@ void Trie::total_search_update_vars(const p_trie_t &current_trie,
   }
 }
 
-void Trie::insert_table_index(const p_trie_t trie, unsigned int worker_index, unsigned int rate_table_id, size_t index) {
+/*void Trie::insert_table_index(const p_trie_t trie, unsigned int worker_index, unsigned int rate_table_id, size_t index) {
   p_trie_t current_trie = trie;
   Code dyn_rate_table_id(rate_table_id);
   while (dyn_rate_table_id.has_more_digits()) {
@@ -700,3 +695,4 @@ int Trie::search_table_index(const p_trie_t trie, unsigned int rate_table_id) {
   else
     return -1;
 }
+*/

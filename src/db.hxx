@@ -65,7 +65,7 @@ namespace db {
       void wait_till_next_load_cicle();
       void read_chunk(unsigned int conn_index);
       bool is_reading();
-      void insert_code_name_rate_table_rate(const search::SearchResult &search_result);
+      //void insert_code_name_rate_table_rate(const search::SearchResult &search_result);
   };
 }
 #endif

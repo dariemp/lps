@@ -21,6 +21,10 @@ SearchResultElement::SearchResultElement(unsigned long long code, std::string co
           future_end_date(future_end_date),
           egress_trunk_id(egress_trunk_id) {}
 
+bool SearchResultElement::operator <(SearchResultElement &other) const {
+  return this->current_max_rate < other.current_max_rate;
+}
+
 unsigned long long SearchResultElement::get_code() {
     return code;
 }
@@ -78,15 +82,17 @@ SearchResult::SearchResult() {
 }
 
 SearchResult::~SearchResult() {
-  for (size_t i = 0; i < data->size(); ++i)
-    delete (*data)[i];
+  /*for (size_t i = 0; i < data->size(); ++i)
+    delete (*data)[i];*/
+  for (auto it = data->begin(); it != data->end(); ++it)
+    delete *it;
   data->clear();
   delete data;
 }
 
-SearchResultElement* SearchResult::operator [](size_t index) const {
+/*SearchResultElement* SearchResult::operator [](size_t index) const {
   return (*data)[index];
-}
+}*/
 
 void SearchResult::insert(unsigned long long code,
                           std::string code_name,
@@ -102,12 +108,10 @@ void SearchResult::insert(unsigned long long code,
                           time_t future_end_date,
                           unsigned int egress_trunk_id) {
   tbb::mutex::scoped_lock lock(search_insertion_mutex);
-  if (data->empty())
-    data->emplace_back(
-      new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
-                              future_min_rate, future_max_rate, effective_date, end_date,
-                              future_effective_date, future_end_date, egress_trunk_id));
-  size_t i = 0;
+  data->insert(new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
+                          future_min_rate, future_max_rate, effective_date, end_date,
+                          future_effective_date, future_end_date, egress_trunk_id));
+  /*size_t i = 0;
   size_t data_length = data->size();
   while (i <  data_length && current_max_rate < (*data)[i]->get_current_max_rate()) i++;
   if (i < data_length) {
@@ -121,7 +125,7 @@ void SearchResult::insert(unsigned long long code,
     data->emplace_back(
       new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                               future_min_rate, future_max_rate, effective_date, end_date,
-                              future_effective_date, future_end_date, egress_trunk_id));
+                              future_effective_date, future_end_date, egress_trunk_id));*/
 }
 
 void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {

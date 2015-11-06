@@ -3,6 +3,7 @@
 
 #include "shared.hxx"
 #include <tbb/tbb.h>
+#include <set>
 
 namespace search {
 
@@ -35,6 +36,7 @@ namespace search {
                           time_t future_effective_date,
                           time_t future_end_date,
                           unsigned int egress_trunk_id);
+      bool operator <(SearchResultElement &other) const ;
       unsigned long long get_code();
       std::string get_code_name();
       unsigned long long get_rate_table_id();
@@ -50,9 +52,14 @@ namespace search {
       unsigned int get_egress_trunk_id();
   };
 
+  typedef struct {
+    bool operator ()(SearchResultElement* a, SearchResultElement* b) { return *a < *b; };
+  } compare_elements_t;
+
   class SearchResult {
     private:
-      typedef std::vector<SearchResultElement*> search_result_elements_t;
+      //typedef std::vector<SearchResultElement*> search_result_elements_t;
+      typedef std::set<SearchResultElement*, compare_elements_t> search_result_elements_t;
       typedef search_result_elements_t* p_search_result_elements_t;
       tbb::mutex search_insertion_mutex;
       p_search_result_elements_t data;
@@ -60,7 +67,7 @@ namespace search {
     public:
       SearchResult();
       ~SearchResult();
-      SearchResultElement* operator [](size_t index) const;
+      //SearchResultElement* operator [](size_t index) const;
       void insert(unsigned long long code,
                   std::string code_name,
                   unsigned long long rate_table_id,

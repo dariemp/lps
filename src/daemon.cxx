@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     unsigned int http_listen_port = 80;
     unsigned int first_row_to_read_debug = 0;
     unsigned int last_row_to_read_debug = 0;
-    unsigned int refresh_minutes = 60;
+    unsigned int refresh_minutes = 30;
     unsigned int chunk_size = 100000;
 
     while ((opt = getopt(argc, argv, "c:d:u:p:s:n:t:w:f:l:m:k:h")) != -1) {

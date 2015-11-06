@@ -159,7 +159,7 @@ void DB::consolidate_results(unsigned int conn_index, const pqxx::result &result
   }
 }
 
-void DB::insert_code_name_rate_table_rate(const search::SearchResult &search_result) {
+/*void DB::insert_code_name_rate_table_rate(const search::SearchResult &search_result) {
   unsigned int conn_count = connections.size();
   size_t result_size = search_result.size();
   unsigned int row_per_conn = result_size / conn_count + 1;
@@ -191,7 +191,7 @@ void DB::insert_code_name_rate_table_rate(const search::SearchResult &search_res
         }
       }
     });
-}
+}*/
 
 void DB::wait_for_reading() {
   while (reading || reading_count > 0)

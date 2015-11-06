@@ -51,9 +51,9 @@ namespace trie {
 
   typedef TrieData* p_trie_data_t;
   typedef Trie* p_trie_t;
-  typedef tbb::concurrent_vector<trie::p_trie_t> tries_t;
+//  typedef tbb::concurrent_vector<trie::p_trie_t> tries_t;
   typedef tbb::concurrent_unordered_map<unsigned char, p_trie_t> children_t;
-  typedef tries_t* p_tries_t;
+//  typedef tries_t* p_tries_t;
   typedef struct {
     unsigned char child_index;
     p_trie_t trie;
@@ -87,7 +87,7 @@ namespace trie {
       int get_table_index();
       void set_table_index(size_t table_index);
       std::string get_code_name();
-      void set_code_name_ptr(ctrl::p_code_pair_t code_name_ptr);
+      void set_code_name(ctrl::p_code_pair_t code_item);
       void set_egress_trunk_id(rate_type_t rate_type, unsigned int egress_trunk_id);
       unsigned int get_egress_trunk_id(rate_type_t rate_type);
       unsigned int get_rate_table_id();
@@ -107,11 +107,11 @@ namespace trie {
       p_trie_t* children;
       uint16_t index_to_mask(unsigned char index);
       unsigned char index_to_child_pos(unsigned char index);
-      p_trie_data_t get_data();
+      //p_trie_data_t get_data();
       bool has_child(unsigned char index);
       p_trie_t get_child(unsigned char index);
       p_trie_t insert_child(unsigned int worker_index, unsigned char index);
-      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_name_ptr, unsigned int egress_trunk_id);
+      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id);
       void set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date);
       static void total_search_update_vars(const p_trie_t &current_trie,
                                            const search_nodes_t &nodes,
@@ -129,12 +129,13 @@ namespace trie {
     public:
       Trie(unsigned int worker_index);
       ~Trie();
+      p_trie_data_t get_data();
       tbb::mutex* get_mutex();
       unsigned int get_worker_index();
       static void insert_code(const p_trie_t trie,
                               unsigned int worker_index,
                               unsigned long long code,
-                              ctrl::p_code_pair_t code_name_ptr,
+                              ctrl::p_code_pair_t code_item,
                               unsigned int rate_table_id,
                               double default_rate,
                               double inter_rate,
@@ -144,10 +145,8 @@ namespace trie {
                               time_t end_date,
                               time_t reference_time,
                               unsigned int egress_trunk_id);
-      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, bool check_special_case, search::SearchResult &search_result);
+      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result);
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
-      static void insert_table_index(const p_trie_t trie, unsigned int worker_index, unsigned int rate_table_id, size_t index);
-      static int search_table_index(const p_trie_t trie, unsigned int rate_table_id);
   };
 
 
