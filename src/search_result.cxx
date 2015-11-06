@@ -111,21 +111,6 @@ void SearchResult::insert(unsigned long long code,
   data->insert(new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                           future_min_rate, future_max_rate, effective_date, end_date,
                           future_effective_date, future_end_date, egress_trunk_id));
-  /*size_t i = 0;
-  size_t data_length = data->size();
-  while (i <  data_length && current_max_rate < (*data)[i]->get_current_max_rate()) i++;
-  if (i < data_length) {
-     if (rate_table_id != (*data)[i]->get_rate_table_id() || code != (*data)[i]->get_code() ||code_name != (*data)[i]->get_code_name())
-      data->insert(data->begin() + i,
-                   new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
-                                           future_min_rate, future_max_rate, effective_date, end_date,
-                                           future_effective_date, future_end_date, egress_trunk_id));
-  }
-  else
-    data->emplace_back(
-      new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
-                              future_min_rate, future_max_rate, effective_date, end_date,
-                              future_effective_date, future_end_date, egress_trunk_id));*/
 }
 
 void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
