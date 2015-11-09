@@ -21,8 +21,16 @@ SearchResultElement::SearchResultElement(unsigned long long code, std::string co
           future_end_date(future_end_date),
           egress_trunk_id(egress_trunk_id) {}
 
-bool SearchResultElement::operator <(SearchResultElement &other) const {
-  return this->current_max_rate < other.current_max_rate;
+bool SearchResultElement::operator >(SearchResultElement &other) const {
+  if (this->current_max_rate > other.current_max_rate)
+    return true;
+  else if (this->current_max_rate == other.current_max_rate) {
+    if (this->code > other.code)
+      return true;
+    else if (this->code == other.code && this->rate_table_id > other.rate_table_id)
+      return true;
+  }
+  return false;
 }
 
 unsigned long long SearchResultElement::get_code() {

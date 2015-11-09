@@ -36,7 +36,7 @@ namespace search {
                           time_t future_effective_date,
                           time_t future_end_date,
                           unsigned int egress_trunk_id);
-      bool operator <(SearchResultElement &other) const ;
+      bool operator >(SearchResultElement &other) const ;
       unsigned long long get_code();
       std::string get_code_name();
       unsigned long long get_rate_table_id();
@@ -53,7 +53,7 @@ namespace search {
   };
 
   typedef struct {
-    bool operator ()(SearchResultElement* a, SearchResultElement* b) { return *a < *b; };
+    bool operator ()(SearchResultElement* a, SearchResultElement* b) { return *a > *b; };
   } compare_elements_t;
 
   class SearchResult {

@@ -43,46 +43,56 @@ Controller::~Controller() {
 }
 
 void Controller::clear_tables() {
+  mutex_unique_lock_t access_lock(access_tables_mutex);
+  access_tables_holder.wait(access_lock, [&]{ return table_access_count == 0; });
+  access_lock.unlock();
   clearing_tables = true;
-  for (auto it = world_tables_tries->begin(); it != world_tables_tries->end(); ++it) {
+  for (auto it = old_world_tables_tries->begin(); it != old_world_tables_tries->end(); ++it) {
     unsigned int worker_index = (*it)->get_worker_index();
     p_trie_release_queue_t trie_release_queue = tries_release_queues[worker_index];
     trie_release_queue->push(*it);
   }
-  for (auto it = us_tables_tries->begin(); it != us_tables_tries->end(); ++it) {
+  for (auto it = old_us_tables_tries->begin(); it != old_us_tables_tries->end(); ++it) {
     unsigned int worker_index = (*it)->get_worker_index();
     p_trie_release_queue_t trie_release_queue = tries_release_queues[worker_index];
     trie_release_queue->push(*it);
   }
-  for (auto it = az_tables_tries->begin(); it != az_tables_tries->end(); ++it) {
+  for (auto it = old_az_tables_tries->begin(); it != old_az_tables_tries->end(); ++it) {
     unsigned int worker_index = (*it)->get_worker_index();
     p_trie_release_queue_t trie_release_queue = tries_release_queues[worker_index];
     trie_release_queue->push(*it);
   }
-  world_tables_tries->clear();
-  us_tables_tries->clear();
-  az_tables_tries->clear();
-  delete world_tables_tries;
-  delete us_tables_tries;
-  delete az_tables_tries;
-  world_tables_index->clear();
-  us_tables_index->clear();
-  az_tables_index->clear();
-  delete world_tables_index;
-  delete us_tables_index;
-  delete az_tables_index;
-  for (auto it = codes->begin(); it != codes->end(); ++it) {
+  old_world_tables_tries->clear();
+  old_us_tables_tries->clear();
+  old_az_tables_tries->clear();
+  delete old_world_tables_tries;
+  delete old_us_tables_tries;
+  delete old_az_tables_tries;
+  old_world_tables_index->clear();
+  old_us_tables_index->clear();
+  old_az_tables_index->clear();
+  delete old_world_tables_index;
+  delete old_us_tables_index;
+  delete old_az_tables_index;
+  for (auto it = old_codes->begin(); it != old_codes->end(); ++it) {
     p_code_value_t code_value = it->second;
     unsigned int worker_index = code_value->first;
     p_code_release_queue_t code_release_queue = codes_release_queues[worker_index];
     code_release_queue->push(code_value);
   }
-  codes->clear();
-  delete codes;
+  old_codes->clear();
+  delete old_codes;
   clearing_tables = false;
 }
 
 void Controller::renew_tables() {
+  old_world_tables_index = world_tables_index;
+  old_world_tables_tries = world_tables_tries;
+  old_us_tables_index = us_tables_index;
+  old_us_tables_tries = us_tables_tries;
+  old_az_tables_index = az_tables_index;
+  old_az_tables_tries = az_tables_tries;
+  old_codes = codes;
   world_tables_index = new_world_tables_index;
   world_tables_tries = new_world_tables_tries;
   us_tables_index = new_us_tables_index;
@@ -108,15 +118,12 @@ void Controller::update_rate_tables_tries() {
     log("Updating rate tables...\n");
     std::lock_guard<std::mutex> update_lock(update_tables_mutex);
     updating_tables = true;
-    mutex_unique_lock_t access_lock(access_tables_mutex);
-    access_tables_holder.wait(access_lock, [&]{ return table_access_count == 0; });
-    if (world_tables_tries || us_tables_tries || az_tables_tries)
+    if (old_world_tables_tries || old_us_tables_tries || old_az_tables_tries || old_codes)
       clear_tables();
     renew_tables();
     reset_new_tables();
     updating_tables = false;
     table_access_count = 0;
-    access_lock.unlock();
   }
   update_tables_holder.notify_all();
 }
@@ -308,7 +315,7 @@ void Controller::search_code(unsigned long long code, trie::rate_type_t rate_typ
   if (!are_tables_available())
     return;
   table_trie_set_t selected_tables;
-  if (code < 100)
+  if (code < 1000)
     selected_tables = select_table_trie(code, "USA", false); // Code name is only used if code first digit is 1.
   else
     selected_tables = select_table_trie(code, "", false);    // Code name is ignored.
@@ -329,10 +336,10 @@ void Controller::search_code_name(std::string &code_name, trie::rate_type_t rate
     return;
   p_code_set_t code_set = (*codes)[code_name]->second;
   table_trie_set_t selected_tables = select_table_trie(*code_set->begin(), code_name, false);
-  _search_code(*code_set, rate_type, selected_tables, result);
+  _search_code(*code_set, rate_type, selected_tables, result, code_name);
 }
 
-void Controller::_search_code(const code_set_t &code_set, trie::rate_type_t rate_type, table_trie_set_t selected_tables, search::SearchResult &result) {
+void Controller::_search_code(const code_set_t &code_set, trie::rate_type_t rate_type, table_trie_set_t selected_tables, search::SearchResult &result, const std::string &filter_code_name) {
   /** THIS SHOULD BE NEVER CALLED DIRECTLY BECAUSE IT IS NOT THREAD SAFE */
   tbb::parallel_for(tbb::blocked_range<size_t>(0, selected_tables.tables_tries->size()),
     [&](const tbb::blocked_range<size_t> &r)  {
@@ -344,7 +351,7 @@ void Controller::_search_code(const code_set_t &code_set, trie::rate_type_t rate
           trie::p_trie_t trie = (*selected_tables.tables_tries)[i];
           for (auto it = code_set.begin(); it != code_set.end(); ++it) {
             unsigned long long code = *it;
-            trie->search_code(trie, code, rate_type, result);
+            trie->search_code(trie, code, rate_type, result, filter_code_name);
           }
           {
             std::lock_guard<std::mutex> lock(access_tables_mutex);
@@ -377,7 +384,7 @@ void Controller::search_code_name_rate_table(std::string &code_name, unsigned in
   trie::p_trie_t trie = (*selected_tables.tables_tries)[index];
   for (auto it = code_set->begin(); it != code_set->end(); ++it) {
     unsigned long long code = *it;
-    trie->search_code(trie, code, rate_type, result);
+    trie->search_code(trie, code, rate_type, result, code_name);
   }
   {
     std::lock_guard<std::mutex> lock(access_tables_mutex);

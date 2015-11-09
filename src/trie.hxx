@@ -145,7 +145,7 @@ namespace trie {
                               time_t end_date,
                               time_t reference_time,
                               unsigned int egress_trunk_id);
-      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result);
+      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result, const std::string &filter_code_name = "");
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
   };
 

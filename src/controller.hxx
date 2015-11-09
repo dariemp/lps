@@ -62,6 +62,13 @@ namespace ctrl {
       p_tables_tries_t new_az_tables_tries;
       p_tables_index_t new_az_tables_index;
       p_codes_t new_codes;
+      p_tables_tries_t old_world_tables_tries;
+      p_tables_index_t old_world_tables_index;
+      p_tables_tries_t old_us_tables_tries;
+      p_tables_index_t old_us_tables_index;
+      p_tables_tries_t old_az_tables_tries;
+      p_tables_index_t old_az_tables_index;
+      p_codes_t old_codes;
       unsigned int telnet_listen_port;
       unsigned int http_listen_port;
       std::atomic_bool updating_tables;
@@ -79,7 +86,7 @@ namespace ctrl {
       void insert_code_name_rate_table_db();
       table_trie_set_t select_table_trie(unsigned long long code, const std::string &code_name, bool inserting);
       bool are_tables_available();
-      void _search_code(const code_set_t &code_set, trie::rate_type_t rate_type, table_trie_set_t selected_tables, search::SearchResult &result);
+      void _search_code(const code_set_t &code_set, trie::rate_type_t rate_type, table_trie_set_t selected_tables, search::SearchResult &result, const std::string &filter_code_name = "");
       Controller(db::ConnectionInfo &conn_info,
                  unsigned int telnet_listen_port,
                  unsigned int http_listen_port);
