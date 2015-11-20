@@ -149,27 +149,30 @@ void Controller::start_workflow() {
 };
 
 void Controller::run_worker(unsigned int worker_index) {
-  p_trie_release_queue_t trie_release_queue = tries_release_queues[worker_index];
-  p_code_release_queue_t code_release_queue = codes_release_queues[worker_index];
+  p_trie_release_queue_t worker_trie_release_queue = tries_release_queues[worker_index];
+  p_code_release_queue_t worker_code_release_queue = codes_release_queues[worker_index];
   while (true) {
     while (!(clearing_tables || (database != nullptr && database->is_reading())))
       std::this_thread::sleep_for(std::chrono::seconds(1));
     if (database->is_reading())
       database->read_chunk(worker_index);
     else {
-      while (clearing_tables || !(trie_release_queue->empty() && code_release_queue->empty())) {
+      while (clearing_tables || !(worker_trie_release_queue->empty() && worker_code_release_queue->empty())) {
         trie::p_trie_t some_trie;
         p_code_value_t some_code_value;
-        while (trie_release_queue->try_pop(some_trie)) {
+        while (worker_trie_release_queue->try_pop(some_trie)) {
           if (some_trie->get_worker_index() != worker_index)
             throw WorkerReleaseLeakException();
-          for (size_t i = 0; i < 10; ++i) {
-            if (some_trie->has_child(i))
-              trie_release_queue->push(some_trie->get_child(i));
-          }
+          for (size_t i = 0; i < 10; ++i)
+            if (some_trie->has_child(i)) {
+              trie::p_trie_t some_child = some_trie->get_child(i);
+              unsigned int child_creator_worker = some_child->get_worker_index();
+              p_trie_release_queue_t designated_worker_queue = tries_release_queues[child_creator_worker];
+              designated_worker_queue->push(some_child);
+            }
           delete some_trie;
         }
-        while (code_release_queue->try_pop(some_code_value)) {
+        while (worker_code_release_queue->try_pop(some_code_value)) {
           if (some_code_value->first != worker_index)
             throw WorkerReleaseLeakException();
           some_code_value->second->clear();
