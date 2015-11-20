@@ -46,6 +46,7 @@ namespace db {
     private:
       typedef pqxx::connection* p_connection_t;
       typedef tbb::concurrent_vector<p_connection_t> connections_t;
+      tbb::mutex range_selection_mutex;
       std::atomic_bool reading;
       std::atomic_uint reading_count;
       time_t reference_time;

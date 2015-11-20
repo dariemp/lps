@@ -42,10 +42,7 @@ namespace ctrl {
       tbb::mutex az_table_index_insertion_mutex;
       tbb::mutex code_name_creation_mutex;
       std::mutex update_tables_mutex;
-      std::mutex access_tables_mutex;
       std::condition_variable update_tables_holder;
-      std::condition_variable access_tables_holder;
-      std::atomic_uint table_access_count;
       db::p_db_t database;
       db::p_conn_info_t conn_info;
       p_tables_tries_t world_tables_tries;

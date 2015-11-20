@@ -333,9 +333,11 @@ Trie::Trie(unsigned int worker_index)
     children(nullptr) {}
 
 Trie::~Trie() {
-  size_t count = children_size / sizeof(p_trie_t);
+  /** IMPORTANT: Individual child disposal is delegated to Controller release queues to be done by tasks/workers **/
+
+  /*size_t count = children_size / sizeof(p_trie_t);
   for (unsigned char i=0; i < count; ++i)
-    delete children[i];
+    delete children[i];*/
   free(children);
   delete data;
 }

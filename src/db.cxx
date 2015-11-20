@@ -67,11 +67,15 @@ void DB::init_load_cicle(time_t reference_time) {
 void DB::read_chunk(unsigned int conn_index) {
   reading_count++;
   unsigned long long chunk_size = p_conn_info->chunk_size;
-  tbb::mutex range_selection_mutex;
   unsigned int range_first_rate_id;
   unsigned int range_last_rate_id;
   {
     tbb::mutex::scoped_lock lock(range_selection_mutex);
+    if (last_queried_row >= last_rate_id) {
+      reading = false;
+      reading_count--;
+      return;
+    }
     range_first_rate_id = last_queried_row + 1;
     range_last_rate_id = range_first_rate_id + chunk_size;
     if (range_last_rate_id > last_rate_id) {

@@ -19,6 +19,14 @@ Controller::Controller(db::ConnectionInfo &conn_info,
                        unsigned int telnet_listen_port,
                        unsigned int http_listen_port)
   : conn_info(&conn_info),
+    world_tables_tries(nullptr),
+    us_tables_tries(nullptr),
+    az_tables_tries(nullptr),
+    codes(nullptr),
+    old_world_tables_tries(nullptr),
+    old_us_tables_tries(nullptr),
+    old_az_tables_tries(nullptr),
+    old_codes(nullptr),
     telnet_listen_port(telnet_listen_port),
     http_listen_port(http_listen_port),
     updating_tables(false),
@@ -43,9 +51,7 @@ Controller::~Controller() {
 }
 
 void Controller::clear_tables() {
-  mutex_unique_lock_t access_lock(access_tables_mutex);
-  access_tables_holder.wait(access_lock, [&]{ return table_access_count == 0; });
-  access_lock.unlock();
+  log("Clearing tables...will push tries to release queues...\n");
   clearing_tables = true;
   for (auto it = old_world_tables_tries->begin(); it != old_world_tables_tries->end(); ++it) {
     unsigned int worker_index = (*it)->get_worker_index();
@@ -62,6 +68,7 @@ void Controller::clear_tables() {
     p_trie_release_queue_t trie_release_queue = tries_release_queues[worker_index];
     trie_release_queue->push(*it);
   }
+  log("Tries pushed... releasing vectors...\n");
   old_world_tables_tries->clear();
   old_us_tables_tries->clear();
   old_az_tables_tries->clear();
@@ -74,6 +81,7 @@ void Controller::clear_tables() {
   delete old_world_tables_index;
   delete old_us_tables_index;
   delete old_az_tables_index;
+  log("Vectors released.... realeasing codes...\n");
   for (auto it = old_codes->begin(); it != old_codes->end(); ++it) {
     p_code_value_t code_value = it->second;
     unsigned int worker_index = code_value->first;
@@ -83,6 +91,7 @@ void Controller::clear_tables() {
   old_codes->clear();
   delete old_codes;
   clearing_tables = false;
+  log("Tables cleared.\n");
 }
 
 void Controller::renew_tables() {
@@ -123,7 +132,6 @@ void Controller::update_rate_tables_tries() {
     renew_tables();
     reset_new_tables();
     updating_tables = false;
-    table_access_count = 0;
   }
   update_tables_holder.notify_all();
 }
@@ -148,13 +156,17 @@ void Controller::run_worker(unsigned int worker_index) {
       std::this_thread::sleep_for(std::chrono::seconds(1));
     if (database->is_reading())
       database->read_chunk(worker_index);
-    else
+    else {
       while (clearing_tables || !(trie_release_queue->empty() && code_release_queue->empty())) {
         trie::p_trie_t some_trie;
         p_code_value_t some_code_value;
         while (trie_release_queue->try_pop(some_trie)) {
           if (some_trie->get_worker_index() != worker_index)
             throw WorkerReleaseLeakException();
+          for (size_t i = 0; i < 10; ++i) {
+            if (some_trie->has_child(i))
+              trie_release_queue->push(some_trie->get_child(i));
+          }
           delete some_trie;
         }
         while (code_release_queue->try_pop(some_code_value)) {
@@ -164,6 +176,8 @@ void Controller::run_worker(unsigned int worker_index) {
           delete some_code_value;
         }
       }
+      log("stop clearing tables\n");
+    } // else
   }
 }
 
@@ -344,20 +358,11 @@ void Controller::_search_code(const code_set_t &code_set, trie::rate_type_t rate
   tbb::parallel_for(tbb::blocked_range<size_t>(0, selected_tables.tables_tries->size()),
     [&](const tbb::blocked_range<size_t> &r)  {
         for( size_t i = r.begin(); i != r.end(); ++i ) {
-          {
-            std::lock_guard<std::mutex> lock(access_tables_mutex);
-            table_access_count++;
-          }
           trie::p_trie_t trie = (*selected_tables.tables_tries)[i];
           for (auto it = code_set.begin(); it != code_set.end(); ++it) {
             unsigned long long code = *it;
             trie->search_code(trie, code, rate_type, result, filter_code_name);
           }
-          {
-            std::lock_guard<std::mutex> lock(access_tables_mutex);
-            table_access_count--;
-          }
-          access_tables_holder.notify_all();
       }
     }
   );
@@ -376,21 +381,12 @@ void Controller::search_code_name_rate_table(std::string &code_name, unsigned in
   table_trie_set_t selected_tables = select_table_trie(*code_set->begin(), code_name, false);
   if (selected_tables.tables_index->find(rate_table_id) == selected_tables.tables_index->end())
     return;
-  {
-    std::lock_guard<std::mutex> lock(access_tables_mutex);
-    table_access_count++;
-  }
   size_t index = (*selected_tables.tables_index)[rate_table_id];
   trie::p_trie_t trie = (*selected_tables.tables_tries)[index];
   for (auto it = code_set->begin(); it != code_set->end(); ++it) {
     unsigned long long code = *it;
     trie->search_code(trie, code, rate_type, result, code_name);
   }
-  {
-    std::lock_guard<std::mutex> lock(access_tables_mutex);
-    table_access_count--;
-  }
-  access_tables_holder.notify_all();
 }
 
 void Controller::search_rate_table(unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
@@ -401,10 +397,6 @@ void Controller::search_rate_table(unsigned int rate_table_id, trie::rate_type_t
   p_tables_tries_t tables_tries;
   if (!are_tables_available())
     return;
-  {
-    std::lock_guard<std::mutex> lock(access_tables_mutex);
-    table_access_count++;
-  }
   std::vector<p_code_set_t> all_codes_sets;
   for (auto it = codes->begin(); it != codes->end(); ++it)
     all_codes_sets.push_back(it->second->second);
@@ -439,11 +431,6 @@ void Controller::search_rate_table(unsigned int rate_table_id, trie::rate_type_t
       }
     });
   all_codes_sets.clear();
-  {
-    std::lock_guard<std::mutex> lock(access_tables_mutex);
-    table_access_count--;
-  }
-  access_tables_holder.notify_all();
 }
 
 void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchResult &result) {
@@ -481,17 +468,9 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
           [&](const tbb::blocked_range2d<size_t, size_t> &s)  {
             for (auto j = s.rows().begin(); j != s.rows().end(); ++j)
               for (auto k = s.cols().begin(); k != s.cols().end(); ++k) {
-                {
-                  std::lock_guard<std::mutex> lock(access_tables_mutex);
-                  table_access_count++;
-                }
                 trie::p_trie_t trie = (*tables_tries)[j];
                 unsigned long long code = all_codes[k];
                 trie->search_code(trie, code, rate_type, result);
-                {
-                  std::lock_guard<std::mutex> lock(access_tables_mutex);
-                  table_access_count--;
-                }
               }
           });
       }

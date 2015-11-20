@@ -107,9 +107,7 @@ namespace trie {
       p_trie_t* children;
       uint16_t index_to_mask(unsigned char index);
       unsigned char index_to_child_pos(unsigned char index);
-      //p_trie_data_t get_data();
-      bool has_child(unsigned char index);
-      p_trie_t get_child(unsigned char index);
+      p_trie_data_t get_data();
       p_trie_t insert_child(unsigned int worker_index, unsigned char index);
       void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id);
       void set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date);
@@ -129,9 +127,11 @@ namespace trie {
     public:
       Trie(unsigned int worker_index);
       ~Trie();
-      p_trie_data_t get_data();
+      //p_trie_data_t get_data();
       tbb::mutex* get_mutex();
       unsigned int get_worker_index();
+      bool has_child(unsigned char index);
+      p_trie_t get_child(unsigned char index);
       static void insert_code(const p_trie_t trie,
                               unsigned int worker_index,
                               unsigned long long code,
