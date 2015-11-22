@@ -511,8 +511,8 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
       time_t data_future_effective_date = data->get_future_effective_date(rate_type);
       time_t data_future_end_date = data->get_future_end_date(rate_type);
       if (data_current_rate > 0 ) {
-        /*if (current_min_rate <=0 || data_current_rate < current_min_rate)
-          current_min_rate = data_current_rate;*/
+        if (current_min_rate <=0 || data_current_rate < current_min_rate)
+          current_min_rate = data_current_rate;
         //if (current_max_rate <=0 || data_current_rate > current_max_rate) {
           code_name = data->get_code_name();
           if (filter_code_name != "" && code_name != filter_code_name)
@@ -522,7 +522,7 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
           current_effective_date = data_current_effective_date;
           current_end_date = data_current_end_date;
           egress_trunk_id = data->get_egress_trunk_id(rate_type);
-          //if (future_min_rate <=0 || data_future_rate < future_min_rate)
+          if (future_min_rate <=0 || data_future_rate < future_min_rate)
             future_min_rate = data_future_rate;
           //if (future_max_rate <=0 || data_future_rate > future_max_rate) {
             future_max_rate = data_future_rate;
