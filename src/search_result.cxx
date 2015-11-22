@@ -125,7 +125,7 @@ void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
   readable_date = "";
   if (epoch_date > 0) {
     char buffer_date[100];
-    strftime(buffer_date, 100, "%a %e %b %Y %T %z", gmtime(&epoch_date));
+    strftime(buffer_date, 100, "%Y-%m-%d %T+%z", gmtime(&epoch_date));
     readable_date = std::string(buffer_date);
   }
 }

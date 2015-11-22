@@ -442,7 +442,7 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
   update_tables_lock.unlock();
   if (!are_tables_available())
     return;
-  p_tables_index_t tables_index;
+  //p_tables_index_t tables_index;
   p_tables_tries_t tables_tries;
   std::vector<unsigned long long > all_codes;
   for (auto it = codes->begin(); it != codes->end(); ++it) {
@@ -450,7 +450,7 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
     for (auto it = code_set->begin(); it != code_set->end(); ++it)
       all_codes.push_back(*it);
   }
-  tbb::parallel_for(tbb::blocked_range<size_t>(0, 3),
+  /*tbb::parallel_for(tbb::blocked_range<size_t>(0, 3),
     [&](const tbb::blocked_range<size_t> &r)  {
       for (auto i = r.begin(); i != r.end(); ++i) {
         switch (i) {
@@ -462,11 +462,11 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
             tables_index = us_tables_index;
             tables_tries = us_tables_tries;
             break;
-          case 2:
-            tables_index = az_tables_index;
+          case 2:*/
+            //tables_index = az_tables_index;
             tables_tries = az_tables_tries;
-          break;
-        }
+          /*break;
+        }*/
         tbb::parallel_for(tbb::blocked_range2d<size_t, size_t>(0, tables_tries->size(), 0, all_codes.size()),
           [&](const tbb::blocked_range2d<size_t, size_t> &s)  {
             for (auto j = s.rows().begin(); j != s.rows().end(); ++j)
@@ -476,7 +476,7 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
                 trie->search_code(trie, code, rate_type, result);
               }
           });
-      }
-   });
+      //}
+   //});
    all_codes.clear();
 }
