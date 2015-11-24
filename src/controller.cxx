@@ -51,7 +51,7 @@ Controller::~Controller() {
 }
 
 void Controller::clear_tables() {
-  log("Clearing tables...will push tries to release queues...\n");
+  log("Clearing tables...will push tries to release queues...");
   clearing_tables = true;
   for (auto it = old_world_tables_tries->begin(); it != old_world_tables_tries->end(); ++it) {
     unsigned int worker_index = (*it)->get_worker_index();
@@ -68,7 +68,7 @@ void Controller::clear_tables() {
     p_trie_release_queue_t trie_release_queue = tries_release_queues[worker_index];
     trie_release_queue->push(*it);
   }
-  log("Tries pushed... releasing vectors...\n");
+  log("Tries pushed... releasing vectors...");
   old_world_tables_tries->clear();
   old_us_tables_tries->clear();
   old_az_tables_tries->clear();
@@ -81,7 +81,7 @@ void Controller::clear_tables() {
   delete old_world_tables_index;
   delete old_us_tables_index;
   delete old_az_tables_index;
-  log("Vectors released.... realeasing codes...\n");
+  log("Vectors released.... realeasing codes...");
   for (auto it = old_codes->begin(); it != old_codes->end(); ++it) {
     p_code_value_t code_value = it->second;
     unsigned int worker_index = code_value->first;
@@ -91,7 +91,7 @@ void Controller::clear_tables() {
   old_codes->clear();
   delete old_codes;
   clearing_tables = false;
-  log("Tables cleared.\n");
+  log("Tables cleared.");
 }
 
 void Controller::renew_tables() {
@@ -124,7 +124,7 @@ void Controller::reset_new_tables() {
 void Controller::update_rate_tables_tries() {
   {
     database->wait_for_reading();
-    log("Updating rate tables...\n");
+    log("Updating rate tables...");
     std::lock_guard<std::mutex> update_lock(update_tables_mutex);
     updating_tables = true;
     if (old_world_tables_tries || old_us_tables_tries || old_az_tables_tries || old_codes)
@@ -179,21 +179,22 @@ void Controller::run_worker(unsigned int worker_index) {
           delete some_code_value;
         }
       }
-      log("stop clearing tables\n");
     } // else
   }
 }
 
 void Controller::run_logger() {
   while (true) {
-    std::string output;
-    std::string errput;
+    std::string output = "";
+    std::string errput = "";
     bool output_available = try_get_output(output);
     bool errput_available = try_get_error(errput);
     if  (!(output_available || errput_available))
       std::this_thread::sleep_for(std::chrono::seconds(1));
-    std::cout << output;
-    std::cerr << errput;
+    if (output != "")
+      std::cout << output << std::endl;
+    if (errput != "")
+      std::cerr << errput << std::endl;
   }
 }
 
@@ -225,10 +226,10 @@ void Controller::update_table_tries() {
 
 void Controller::insert_code_name_rate_table_db() {
   search::SearchResult result;
-  log("Searching all codes...\n");
+  log("Searching all codes...");
   for (unsigned char i = trie::rate_type_t::RATE_TYPE_DEFAULT; i <= trie::rate_type_t::RATE_TYPE_LOCAL; ++i)
     search_all_codes((trie::rate_type_t)i, result);
-  log("Updating database with rate data...\n");
+  log("Updating database with rate data...");
   //database->insert_code_name_rate_table_rate(result);
 }
 
@@ -297,8 +298,8 @@ void Controller::insert_new_rate_data(db::db_data_t db_data) {
     tbb::mutex::scoped_lock lock(code_name_creation_mutex);
     if ((it = new_codes->find(db_data.code_name)) == new_codes->end())
       (*new_codes)[db_data.code_name] = new code_value_t(db_data.conn_index, new code_set_t());
+    (*new_codes)[db_data.code_name]->second->insert(db_data.code);
   }
-  (*new_codes)[db_data.code_name]->second->insert(db_data.code);
   if (it == new_codes->end())
     it = new_codes->find(db_data.code_name);
   p_code_pair_t code_items =  &(*it);
@@ -336,10 +337,10 @@ void Controller::search_code(unsigned long long code, trie::rate_type_t rate_typ
     selected_tables = select_table_trie(code, "USA", false); // Code name is only used if code first digit is 1.
   else
     selected_tables = select_table_trie(code, "", false);    // Code name is ignored.
-  code_set_t code_list;
-  code_list.insert(code);
-  _search_code(code_list, rate_type, selected_tables, result);
-  code_list.clear();
+  code_set_t code_set;
+  code_set.insert(code);
+  _search_code(code_set, rate_type, selected_tables, result);
+  code_set.clear();
 }
 
 void Controller::search_code_name(std::string &code_name, trie::rate_type_t rate_type, search::SearchResult &result) {
@@ -388,7 +389,7 @@ void Controller::search_code_name_rate_table(std::string &code_name, unsigned in
   trie::p_trie_t trie = (*selected_tables.tables_tries)[index];
   for (auto it = code_set->begin(); it != code_set->end(); ++it) {
     unsigned long long code = *it;
-    trie->search_code(trie, code, rate_type, result, code_name);
+    trie->search_code(trie, code, rate_type, result, code_name, true);
   }
 }
 
@@ -444,11 +445,10 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
     return;
   //p_tables_index_t tables_index;
   p_tables_tries_t tables_tries;
-  std::vector<unsigned long long > all_codes;
+  std::set<unsigned long long > all_codes;
   for (auto it = codes->begin(); it != codes->end(); ++it) {
     p_code_set_t code_set = it->second->second;
-    for (auto it = code_set->begin(); it != code_set->end(); ++it)
-      all_codes.push_back(*it);
+    all_codes.insert(code_set->begin(), code_set->end());
   }
   /*tbb::parallel_for(tbb::blocked_range<size_t>(0, 3),
     [&](const tbb::blocked_range<size_t> &r)  {
@@ -467,14 +467,15 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
             tables_tries = az_tables_tries;
           /*break;
         }*/
-        tbb::parallel_for(tbb::blocked_range2d<size_t, size_t>(0, tables_tries->size(), 0, all_codes.size()),
-          [&](const tbb::blocked_range2d<size_t, size_t> &s)  {
-            for (auto j = s.rows().begin(); j != s.rows().end(); ++j)
-              for (auto k = s.cols().begin(); k != s.cols().end(); ++k) {
-                trie::p_trie_t trie = (*tables_tries)[j];
-                unsigned long long code = all_codes[k];
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, tables_tries->size()),
+          [&](const tbb::blocked_range<size_t> &s)  {
+            for (auto j = s.begin(); j != s.end(); ++j) {
+              trie::p_trie_t trie = (*tables_tries)[j];
+              for (auto it=all_codes.begin(); it != all_codes.end(); ++it) {
+                unsigned long long code = *it;
                 trie->search_code(trie, code, rate_type, result);
               }
+            }
           });
       //}
    //});

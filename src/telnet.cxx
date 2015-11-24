@@ -62,52 +62,52 @@ void Telnet::run_server(unsigned int telnet_listen_port) {
   telnet_socket6 = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK | IPV6_V6ONLY, 0);
   epollfd = epoll_create(10);
   if (epollfd == -1) {
-    ctrl::error("Could not create network queue.\n");
+    ctrl::error("Could not create network queue.");
     exit(EXIT_FAILURE);
   }
   if (telnet_socket < 0 && telnet_socket6 < 0) {
-    ctrl::error("Could not create telnet server socket\n");
+    ctrl::error("Could not create telnet server socket");
     exit(EXIT_FAILURE);
   }
   if (telnet_socket >= 0 ) {
     if (bind(telnet_socket, (struct sockaddr *)&addr, addrlen) < 0) {
-      ctrl::error("Could not bind telnet IPV4 socket\n");
+      ctrl::error("Could not bind telnet IPV4 socket");
       exit(EXIT_FAILURE);
     }
     if (listen(telnet_socket, 10) < 0) {
-      ctrl::error("Could not listen on telnet IPV4 socket\n");
+      ctrl::error("Could not listen on telnet IPV4 socket");
       exit(EXIT_FAILURE);
     };
     ev.events = EPOLLIN;
     ev.data.fd = telnet_socket;
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, telnet_socket, &ev) == -1) {
-       ctrl::error("Could not initialize listening queue (IPV4)\n");
+       ctrl::error("Could not initialize listening queue (IPV4)");
        exit(EXIT_FAILURE);
     }
   }
   if (telnet_socket6 >= 0 ) {
     if (bind(telnet_socket6, (struct sockaddr *)&addr6, addrlen) < 0) {
-      ctrl::error("Could not bind telnet IPV6 socket\n");
+      ctrl::error("Could not bind telnet IPV6 socket");
       exit(EXIT_FAILURE);
     }
     if (listen(telnet_socket6, 10) < 0) {
-      ctrl::error("Could not listen on telnet IPV6 socket\n");
+      ctrl::error("Could not listen on telnet IPV6 socket");
       exit(EXIT_FAILURE);
     }
     ev.events = EPOLLIN;
     ev.data.fd = telnet_socket6;
     if (epoll_ctl(epollfd, EPOLL_CTL_ADD, telnet_socket6, &ev) == -1) {
-       ctrl::error("Could not initialize listening queue (IPV6)\n");
+       ctrl::error("Could not initialize listening queue (IPV6)");
        exit(EXIT_FAILURE);
     }
   }
-  ctrl::log("Listening Telnet server at port " + std::to_string(telnet_listen_port) + "...\n");
+  ctrl::log("Listening Telnet server at port " + std::to_string(telnet_listen_port) + "...");
   struct epoll_event events[10];
   tbb::task_group g;
   for (;;) {
     nfds = epoll_wait(epollfd, events, 10, -1);
     if (nfds == -1) {
-      ctrl::error("Error when trying to capture networking events\n");
+      ctrl::error("Error when trying to capture networking events.");
       exit(EXIT_FAILURE);
     }
     for (int i = 0; i < nfds; ++i) {
@@ -122,29 +122,29 @@ void Telnet::run_server(unsigned int telnet_listen_port) {
       if (listen_sock != -1) {
         conn_sock = accept(listen_sock, (struct sockaddr *) &local, ( socklen_t*)&addrlen);
         if (conn_sock == -1) {
-          ctrl::error("Failed to accept client connection\n");
+          ctrl::error("Failed to accept client connection.");
           exit(EXIT_FAILURE);
         }
         int fdflags;
         if ((fdflags = fcntl(conn_sock, F_GETFL, 0)) < 0) {
-          ctrl::error("Failed to obtain connection information\n");
+          ctrl::error("Failed to obtain connection information.");
           exit(EXIT_FAILURE);
         }
         fdflags |= O_NONBLOCK;
         if (fcntl(conn_sock, F_SETFL, fdflags) == -1) {
-          ctrl::error("Failed to set connection settings\n");
+          ctrl::error("Failed to set connection settings.");
           exit(EXIT_FAILURE);
         }
         telnet_t* telnet_ctx = configure_telnet(conn_sock);
         if (!telnet_ctx) {
-          ctrl::error("Could not start telnet protocol\n");
+          ctrl::error("Could not start telnet protocol.");
           exit(EXIT_FAILURE);
         }
         (*telnet_ctxs)[conn_sock] = telnet_ctx;
         ev.events = EPOLLIN | EPOLLET;
         ev.data.fd = conn_sock;
         if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock, &ev) == -1) {
-           ctrl::error("Failed to queue new connection\n");
+           ctrl::error("Failed to queue new connection.");
            exit(EXIT_FAILURE);
         }
       }
@@ -190,7 +190,7 @@ void Telnet::process_write(int socket_fd) {
   ev.events = EPOLLIN | EPOLLET;
   ev.data.fd = socket_fd;
   if (epoll_ctl(epollfd, EPOLL_CTL_MOD, socket_fd, &ev) == -1) {
-     ctrl::error("Failed to change socket direction\n");
+     ctrl::error("Failed to change socket direction.");
      exit(EXIT_FAILURE);
   }
 }
@@ -219,7 +219,7 @@ void Telnet::telnet_event_handler(telnet_t *telnet, telnet_event_t *event, void 
         ev.events = EPOLLOUT | EPOLLET;
         ev.data.fd = socket_fd;
         if (epoll_ctl(epollfd, EPOLL_CTL_MOD, socket_fd, &ev) == -1) {
-          ctrl::error("Failed to change socket direction\n");
+          ctrl::error("Failed to change socket direction.");
           exit(EXIT_FAILURE);
         }
       }
@@ -284,7 +284,7 @@ void Telnet::process_command(telnet_t *telnet, const char *buffer, size_t buffer
     else
       command = input.substr(0, pos);
     if (telnet_resources->find(command) == telnet_resources->end())
-      telnet_printf(telnet, "Unrecognized command.\n");
+      telnet_printf(telnet, "Unrecognized command.");
     else {
       std::string output = (*telnet_resources)[command]->process_command(input);
       telnet_send(telnet, output.c_str(), output.size());

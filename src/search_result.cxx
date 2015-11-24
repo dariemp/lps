@@ -1,4 +1,5 @@
 #include "search_result.hxx"
+#include "code.hxx"
 #include <time.h>
 #include <iostream>
 
@@ -28,7 +29,7 @@ bool SearchResultElement::operator >(SearchResultElement &other) const {
     if (this->code > other.code)
       return true;
     else if (this->code == other.code && this->rate_table_id > other.rate_table_id)
-      return true;
+        return true;
   }
   return false;
 }
@@ -131,8 +132,13 @@ void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
 }
 
 std::string SearchResult::to_json() {
+  std::set<unsigned int> rate_table_ids;
   std::string json = "{  \"rank\" : [\n";
   for (auto it = data->begin(); it != data->end(); ++it) {
+    unsigned int rate_table_id = (*it)->get_rate_table_id();
+    if (rate_table_ids.find(rate_table_id) !=  rate_table_ids.end())
+      continue;
+    rate_table_ids.insert(rate_table_id);
     time_t epoch_effective_date = (*it)->get_effective_date();
     time_t epoch_end_date = (*it)->get_end_date();
     std::string effective_date;
@@ -143,10 +149,12 @@ std::string SearchResult::to_json() {
     if (it != data->begin() )
         json += ",\n";
     json += "\t\t{\n";
-    json += "\t\t\t\"code\" : " + std::to_string((*it)->get_code()) + ",\n";
+    unsigned long long code = (*it)->get_code();
+    if (code != 0)
+      json += "\t\t\t\"code\" : " + std::to_string(code) + ",\n";
     json += "\t\t\t\"code_name\" : \"" + (*it)->get_code_name() + "\",\n";
     json += "\t\t\t\"rate_type\" : \"" + trie::rate_type_to_string((*it)->get_rate_type()) + "\",\n";
-    json += "\t\t\t\"rate_table_id\" : " + std::to_string((*it)->get_rate_table_id()) + ",\n";
+    json += "\t\t\t\"rate_table_id\" : " + std::to_string(rate_table_id) + ",\n";
     json += "\t\t\t\"egress_trunk_id\" : " + std::to_string((*it)->get_egress_trunk_id()) + ",\n";
     json += "\t\t\t\"current_max_rate\" : " + std::to_string((*it)->get_current_max_rate()) + ",\n";
     json += "\t\t\t\"current_min_rate\" : " + std::to_string((*it)->get_current_min_rate()) + ",\n";
@@ -187,15 +195,21 @@ std::string SearchResult::to_json() {
 }
 
 std::string SearchResult::to_text_table() {
+  std::set<unsigned int> rate_table_ids;
   std::string table = "";
   for (auto it = data->begin(); it != data->end(); ++it) {
+    unsigned int rate_table_id = (*it)->get_rate_table_id();
+    if (rate_table_ids.find(rate_table_id) !=  rate_table_ids.end())
+      continue;
     time_t epoch_effective_date = (*it)->get_effective_date();
     time_t epoch_end_date = (*it)->get_end_date();
     std::string effective_date;
     std::string end_date;
     convert_date(epoch_effective_date, effective_date);
     double future_max_rate = (*it)->get_future_max_rate();
-    table += "code                  : " + std::to_string((*it)->get_code()) + "\n";
+    unsigned long long code = (*it)->get_code();
+    if (code != 0)
+      table += "code                  : " + std::to_string((*it)->get_code()) + "\n";
     table += "code_name             : " + (*it)->get_code_name() + "\n";
     table += "rate_type             : " + trie::rate_type_to_string((*it)->get_rate_type()) + "\n";
     table += "rate_table_id         : " + std::to_string((*it)->get_rate_table_id()) + "\n";

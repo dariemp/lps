@@ -58,7 +58,6 @@ namespace search {
 
   class SearchResult {
     private:
-      //typedef std::vector<SearchResultElement*> search_result_elements_t;
       typedef std::set<SearchResultElement*, compare_elements_t> search_result_elements_t;
       typedef search_result_elements_t* p_search_result_elements_t;
       tbb::mutex search_insertion_mutex;
@@ -67,7 +66,6 @@ namespace search {
     public:
       SearchResult();
       ~SearchResult();
-      //SearchResultElement* operator [](size_t index) const;
       void insert(unsigned long long code,
                   std::string code_name,
                   unsigned long long rate_table_id,

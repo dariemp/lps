@@ -2,10 +2,15 @@
 #define SHARED_HXX
 
 #include <tbb/tbb.h>
-#include <tbb/concurrent_unordered_set.h>
+#include <set>
 
 namespace ctrl {
-  typedef tbb::concurrent_unordered_set<unsigned long long> code_set_t;
+
+  typedef struct {
+    bool operator ()(const unsigned long long &a, const unsigned long long &b) const { return a > b; };
+  } compare_codes_t;
+
+  typedef std::set<unsigned long long, compare_codes_t> code_set_t;
   typedef code_set_t* p_code_set_t;
   typedef std::pair<unsigned int, p_code_set_t> code_value_t;
   typedef code_value_t* p_code_value_t;

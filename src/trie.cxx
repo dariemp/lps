@@ -350,18 +350,32 @@ p_trie_data_t Trie::get_data() {
   return data;
 }
 
-void Trie::set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id) {
-  data->set_current_rate(rate_type, rate);
-  data->set_current_effective_date(rate_type, effective_date);
-  data->set_current_end_date(rate_type, end_date);
-  data->set_code_name(code_item);
-  data->set_egress_trunk_id(rate_type, egress_trunk_id);
-}
-
-void Trie::set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date) {
-  data->set_future_rate(rate_type, rate);
-  data->set_future_effective_date(rate_type, effective_date);
-  data->set_future_end_date(rate_type, end_date);
+void Trie::set_current_data(rate_type_t rate_type, double rate, time_t reference_time, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id) {
+  if ( effective_date <= reference_time && effective_date > data->get_current_effective_date(rate_type) &&
+      (end_date <= 0 || end_date >= reference_time)) {
+        data->set_current_rate(rate_type, rate);
+        data->set_current_effective_date(rate_type, effective_date);
+        data->set_current_end_date(rate_type, end_date);
+        data->set_code_name(code_item);
+        data->set_egress_trunk_id(rate_type, egress_trunk_id);
+      if (end_date <= 0) {
+        data->set_future_rate(rate_type, rate);
+        data->set_future_effective_date(rate_type, reference_time);
+        data->set_future_end_date(rate_type, end_date);
+      }
+      else {
+        data->set_future_rate(rate_type, -1);
+        data->set_future_effective_date(rate_type, end_date + 1);
+        data->set_future_end_date(rate_type, -1);
+      }
+  }
+  if (effective_date > reference_time && (data->get_future_rate(rate_type) == -1 || effective_date < data->get_future_effective_date(rate_type))) {
+    data->set_future_rate(rate_type, rate);
+    data->set_future_effective_date(rate_type, effective_date);
+    data->set_future_end_date(rate_type, end_date);
+    if (data->get_current_end_date(rate_type) >= effective_date)
+      data->set_current_end_date(rate_type, effective_date - 1);
+  }
 }
 
 uint16_t Trie::index_to_mask(unsigned char index) {
@@ -447,11 +461,8 @@ void Trie::insert_code(const p_trie_t trie,
     else
       current_trie = current_trie->insert_child(worker_index, child_index);
   }
-  p_trie_data_t trie_data = current_trie->get_data();
   for (int i = RATE_TYPE_DEFAULT; i <= RATE_TYPE_LOCAL; i++) {
     rate_type_t rate_type = (rate_type_t)i;
-    time_t old_current_effective_date = trie_data->get_current_effective_date(rate_type);
-    time_t old_future_effective_date = trie_data->get_future_effective_date(rate_type);
     double rate;
     switch (rate_type) {
       case RATE_TYPE_INTER:
@@ -470,19 +481,14 @@ void Trie::insert_code(const p_trie_t trie,
         continue;
     }
     if (rate <= 0) continue;  //Don't update rate data if it is inexistent
-    if ( effective_date <= reference_time && effective_date > old_current_effective_date &&
-        (end_date <= 0 || end_date >= reference_time))
-      current_trie->set_current_data(rate_type, rate, effective_date, end_date, code_item, egress_trunk_id);
-    if ( effective_date > reference_time &&
-        (old_future_effective_date <= 0 || effective_date < old_future_effective_date))
-      current_trie->set_future_data(rate_type, rate, effective_date, end_date);
+    current_trie->set_current_data(rate_type, rate, reference_time, effective_date, end_date, code_item, egress_trunk_id);
   }
 }
 
 /**
     Longest prefix search implementation... sort of
 */
-void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result, const std::string &filter_code_name) {
+void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result, const std::string &filter_code_name, bool include_code) {
   unsigned int rate_table_id = trie->get_data()->get_rate_table_id();
   p_trie_t current_trie = trie;
   unsigned long long code_found = 0, current_code = 0;
@@ -535,8 +541,8 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
     else
       children_found = false;
   }
-  if (code_found)
-    search_result.insert(code_found,
+  if (code_found) {
+    search_result.insert(include_code ? code_found : 0,
                          code_name,
                          rate_table_id,
                          rate_type,
@@ -549,6 +555,7 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
                          future_effective_date,
                          future_end_date,
                          egress_trunk_id);
+  }
 }
 
 /**

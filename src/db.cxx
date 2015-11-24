@@ -14,7 +14,7 @@ DB::DB(ConnectionInfo &conn_info) : reading(false), reading_count(0), reference_
   p_conn_info = &conn_info;
   if (conn_info.conn_count < 1)
     throw DBNoConnectionsException();
-  ctrl::log("Connecting to database with " + std::to_string(conn_info.conn_count) + " connections...\n");
+  ctrl::log("Connecting to database with " + std::to_string(conn_info.conn_count) + " connections...");
   tbb::parallel_for(tbb::blocked_range<size_t>(0, conn_info.conn_count),
       [=](const tbb::blocked_range<size_t>& r) {
           for (size_t i = r.begin(); i != r.end(); ++i)
@@ -47,7 +47,7 @@ unsigned int DB::get_first_rate_id(bool from_beginning) {
 }
 
 void DB::init_load_cicle(time_t reference_time) {
-  ctrl::log("Loading rate records from the database in parallel... \n");
+  ctrl::log("Loading rate records from the database in parallel... ");
   this->reference_time = reference_time;
   if (p_conn_info->first_row_to_read_debug)
     first_rate_id = p_conn_info->first_row_to_read_debug;
@@ -57,8 +57,8 @@ void DB::init_load_cicle(time_t reference_time) {
     last_rate_id = p_conn_info->last_row_to_read_debug;
   else
     last_rate_id = get_first_rate_id(false);
-  ctrl::log("DB rate first_rate_id: " + std::to_string(first_rate_id) + "\n");
-  ctrl::log("DB rate last_rate_id: " + std::to_string(last_rate_id) + "\n");
+  ctrl::log("DB rate first_rate_id: " + std::to_string(first_rate_id));
+  ctrl::log("DB rate last_rate_id: " + std::to_string(last_rate_id));
   last_queried_row = first_rate_id - 1;
   reading = true;
   reading_count = 0;
@@ -94,7 +94,7 @@ void DB::query_database(unsigned int conn_index, unsigned long long chunk_size, 
   while (remaining_retries > 0) {
     try {
       pqxx::work transaction(*connections[conn_index]);
-      ctrl::log("Reading " + std::to_string(chunk_size) + " records through connection: " + std::to_string(conn_index) + ", from rate_id: " + std::to_string(first_rate_id) + " to rate_id: " + std::to_string(last_rate_id) + "\n");
+      ctrl::log("Reading " + std::to_string(chunk_size) + " records through connection: " + std::to_string(conn_index) + ", from rate_id: " + std::to_string(first_rate_id) + " to rate_id: " + std::to_string(last_rate_id));
       std::string query;
       query =  "select distinct rate_table_id, code, rate, inter_rate, intra_rate, local_rate, ";
       query += "extract(epoch from effective_date) as effective_date, ";
@@ -112,13 +112,13 @@ void DB::query_database(unsigned int conn_index, unsigned long long chunk_size, 
       query += " and (end_date is null or end_date > to_timestamp(" + std::to_string(reference_time) + "))";
       query += " order by rate_id";
       pqxx::result result = transaction.exec(query);
-      ctrl::log("Inserting results from connection " + std::to_string(conn_index) + " into memory structure...\n");
+      ctrl::log("Inserting results from connection " + std::to_string(conn_index) + " into memory structure...");
       consolidate_results(conn_index, result);
       remaining_retries = -1;
     } catch (std::exception &e) {
       remaining_retries--;
-      ctrl::error(std::string(e.what()) + "\n");
-      ctrl::error("Failed query at connection: " + std::to_string(conn_index) + ". Retrying...\n");
+      ctrl::error(std::string(e.what()));
+      ctrl::error("Failed query at connection: " + std::to_string(conn_index) + ". Retrying...");
     }
   }
   if (remaining_retries == 0) {
@@ -138,11 +138,11 @@ void DB::consolidate_results(unsigned int conn_index, const pqxx::result &result
       db_data.code = std::stoull(code_field_text);
     }
     catch (std::exception &e) {
-      ctrl::error("BAD code: " + code_field_text + "\n");
+      ctrl::error("BAD code: " + code_field_text);
       continue;
     }
     if (db_data.code == 0 || std::to_string(db_data.code) != code_field_text) {
-      ctrl::error("BAD code: " + code_field_text + "\n");
+      ctrl::error("BAD code: " + code_field_text);
       continue;
     }
     db_data.rate_table_id = row[0].as<unsigned int>();
@@ -207,13 +207,13 @@ void DB::wait_till_next_load_cicle() {
   time_t seconds = (p_conn_info->refresh_minutes * 60) - (time(nullptr) - reference_time);
   if (seconds <= 0) {
     seconds = 0;
-    ctrl::log("Next update will be now since it took too long to load from database.\n");
+    ctrl::log("Next update will be now since it took too long to load from database.");
   }
   else if (seconds > 60) {
     unsigned int minutes = seconds / 60;
-    ctrl::log("Next update from the database will be in roughly " + std::to_string(minutes) + (minutes > 1 ? " minutes.\n" : " minute.\n"));
+    ctrl::log("Next update from the database will be in roughly " + std::to_string(minutes) + (minutes > 1 ? " minutes." : " minute."));
   }
   else
-    ctrl::log("Next update from the database will be in " + std::to_string(seconds) + " seconds.\n");
+    ctrl::log("Next update from the database will be in " + std::to_string(seconds) + " seconds.");
   std::this_thread::sleep_for(std::chrono::seconds(seconds));
 }

@@ -6,7 +6,7 @@
 using namespace rest;
 
 void Rest::run_server(unsigned int http_listen_port) {
-  ctrl::log("Listening HTTP server at port " + std::to_string(http_listen_port) + "...\n");
+  ctrl::log("Listening HTTP server at port " + std::to_string(http_listen_port) + "...");
   webserver server = create_webserver(http_listen_port).max_threads(10);
   RestSearchCode search_code;
   RestSearchCodeName search_code_name;

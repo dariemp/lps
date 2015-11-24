@@ -61,17 +61,17 @@ int main(int argc, char *argv[]) {
           chunk_size = atoi(optarg);
           break;
        default: /* '?' */
-           ctrl::error("Usage: " + std::string(argv[0]) + " [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword]\n");
-           ctrl::error("          [-s dbport] [-k db_chunk_size] [-t telnet_listen_port] [-w http_listen_port] [-n connections_count]\n");
-           ctrl::error("          [-f first_row_to_read_debug] [-l last_row_to_read_debug] [-m refresh_minutes]\n");
+           ctrl::error("Usage: " + std::string(argv[0]) + " [-h] [-c dbhost] [-d dbname] [-u dbuser] [-p dbpassword]");
+           ctrl::error("          [-s dbport] [-k db_chunk_size] [-t telnet_listen_port] [-w http_listen_port] [-n connections_count]");
+           ctrl::error("          [-f first_row_to_read_debug] [-l last_row_to_read_debug] [-m refresh_minutes]");
            exit(EXIT_FAILURE);
        }
     }
     if (connections_count < 1) {
-      ctrl::error("At least one connection to database is needed to run.\n");
+      ctrl::error("At least one connection to database is needed to run.");
       exit(EXIT_FAILURE);
     }
-    ctrl::log("Starting...\n");
+    ctrl::log("Starting...");
     db::ConnectionInfo conn_info;
     conn_info.host = dbhost;
     conn_info.dbname = dbname;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     controller->start_workflow();
     return 0;
   } catch (std::exception &e) {
-    ctrl::error(std::string(e.what()) + "\n");
+    ctrl::error(std::string(e.what()));
     return 1;
   }
 }

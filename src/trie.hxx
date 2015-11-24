@@ -109,8 +109,7 @@ namespace trie {
       unsigned char index_to_child_pos(unsigned char index);
       p_trie_data_t get_data();
       p_trie_t insert_child(unsigned int worker_index, unsigned char index);
-      void set_current_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id);
-      void set_future_data(rate_type_t rate_type, double rate, time_t effective_date, time_t end_date);
+      void set_current_data(rate_type_t rate_type, double rate, time_t reference_time, time_t effective_date, time_t end_date, ctrl::p_code_pair_t code_item, unsigned int egress_trunk_id);
       static void total_search_update_vars(const p_trie_t &current_trie,
                                            const search_nodes_t &nodes,
                                            unsigned long long &code,
@@ -145,7 +144,7 @@ namespace trie {
                               time_t end_date,
                               time_t reference_time,
                               unsigned int egress_trunk_id);
-      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result, const std::string &filter_code_name = "");
+      static void search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result, const std::string &filter_code_name = "", bool include_code = false);
       //static void total_search_code(const p_trie_t trie, rate_type_t rate_type, search::SearchResult &search_result);
   };
 
