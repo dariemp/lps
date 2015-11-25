@@ -60,11 +60,12 @@ namespace search {
     private:
       typedef std::set<SearchResultElement*, compare_elements_t> search_result_elements_t;
       typedef search_result_elements_t* p_search_result_elements_t;
+      unsigned int days_ahead;
       tbb::mutex search_insertion_mutex;
       p_search_result_elements_t data;
       void convert_date(time_t epoch_date, std::string &readable_date);
     public:
-      SearchResult();
+      SearchResult(unsigned int days_ahead = 7);
       ~SearchResult();
       void insert(unsigned long long code,
                   std::string code_name,
@@ -80,8 +81,8 @@ namespace search {
                   time_t future_end_date,
                   unsigned int egress_trunk_id);
       size_t size() const;
-      std::string to_json();
-      std::string to_text_table();
+      std::string to_json(bool sumarize_rate_table = true);
+      std::string to_text_table(bool sumarize_rate_table = true);
   };
 
 }

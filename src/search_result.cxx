@@ -2,6 +2,7 @@
 #include "code.hxx"
 #include <time.h>
 #include <iostream>
+#include <chrono>
 
 using namespace search;
 
@@ -86,22 +87,16 @@ unsigned int SearchResultElement::get_egress_trunk_id() {
   return egress_trunk_id;
 }
 
-SearchResult::SearchResult() {
+SearchResult::SearchResult(unsigned int days_ahead) : days_ahead(days_ahead) {
   data = new search_result_elements_t();
 }
 
 SearchResult::~SearchResult() {
-  /*for (size_t i = 0; i < data->size(); ++i)
-    delete (*data)[i];*/
   for (auto it = data->begin(); it != data->end(); ++it)
     delete *it;
   data->clear();
   delete data;
 }
-
-/*SearchResultElement* SearchResult::operator [](size_t index) const {
-  return (*data)[index];
-}*/
 
 void SearchResult::insert(unsigned long long code,
                           std::string code_name,
@@ -117,6 +112,34 @@ void SearchResult::insert(unsigned long long code,
                           time_t future_end_date,
                           unsigned int egress_trunk_id) {
   tbb::mutex::scoped_lock lock(search_insertion_mutex);
+  if (future_effective_date != -1 && end_date == -1)
+    end_date = future_effective_date - 1;
+  time_t future_date = effective_date + 3600 * 24 * days_ahead;
+  if (end_date <= 0) {
+    future_max_rate = current_max_rate;
+    future_min_rate = current_min_rate;
+    future_effective_date = future_date;
+    future_end_date =  -1;
+  }
+  else if (future_effective_date <= 0) {
+    if (future_date > end_date)
+      future_effective_date = future_date;
+    else
+      future_effective_date = end_date + 1;
+    future_end_date = -1;
+    future_max_rate = -1;
+    future_min_rate = -1;
+  }
+  else {
+    if (future_date > future_effective_date)
+      future_effective_date = future_date;
+    if (future_end_date > 0 && future_date > future_end_date) {
+      future_end_date = -1;
+      future_max_rate = -1;
+      future_min_rate = -1;
+    }
+  }
+
   data->insert(new SearchResultElement(code, code_name, rate_table_id, rate_type, current_min_rate, current_max_rate,
                           future_min_rate, future_max_rate, effective_date, end_date,
                           future_effective_date, future_end_date, egress_trunk_id));
@@ -131,14 +154,16 @@ void SearchResult::convert_date(time_t epoch_date, std::string &readable_date) {
   }
 }
 
-std::string SearchResult::to_json() {
+std::string SearchResult::to_json(bool sumarize_rate_table) {
   std::set<unsigned int> rate_table_ids;
   std::string json = "{  \"rank\" : [\n";
   for (auto it = data->begin(); it != data->end(); ++it) {
     unsigned int rate_table_id = (*it)->get_rate_table_id();
-    if (rate_table_ids.find(rate_table_id) !=  rate_table_ids.end())
-      continue;
-    rate_table_ids.insert(rate_table_id);
+    if (sumarize_rate_table) {
+      if (rate_table_ids.find(rate_table_id) !=  rate_table_ids.end())
+        continue;
+      rate_table_ids.insert(rate_table_id);
+    }
     time_t epoch_effective_date = (*it)->get_effective_date();
     time_t epoch_end_date = (*it)->get_end_date();
     std::string effective_date;
@@ -194,13 +219,16 @@ std::string SearchResult::to_json() {
   return json;
 }
 
-std::string SearchResult::to_text_table() {
+std::string SearchResult::to_text_table(bool sumarize_rate_table) {
   std::set<unsigned int> rate_table_ids;
   std::string table = "";
   for (auto it = data->begin(); it != data->end(); ++it) {
     unsigned int rate_table_id = (*it)->get_rate_table_id();
-    if (rate_table_ids.find(rate_table_id) !=  rate_table_ids.end())
-      continue;
+    if (sumarize_rate_table) {
+      if (rate_table_ids.find(rate_table_id) !=  rate_table_ids.end())
+        continue;
+      rate_table_ids.insert(rate_table_id);
+    }
     time_t epoch_effective_date = (*it)->get_effective_date();
     time_t epoch_end_date = (*it)->get_end_date();
     std::string effective_date;

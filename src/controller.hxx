@@ -97,7 +97,7 @@ namespace ctrl {
       void insert_new_rate_data(db::db_data_t db_data);
       void search_code(unsigned long long code, trie::rate_type_t rate_type, search::SearchResult &result);
       void search_code_name(std::string &code_name, trie::rate_type_t rate_type, search::SearchResult &result);
-      void search_code_name_rate_table(std::string &code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
+      void search_code_name_rate_table(std::string &code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result, bool include_code = false);
       void search_rate_table(unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result);
       void search_all_codes(trie::rate_type_t rate_type, search::SearchResult &result);
   };

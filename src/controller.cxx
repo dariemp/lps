@@ -372,7 +372,7 @@ void Controller::_search_code(const code_set_t &code_set, trie::rate_type_t rate
   );
 }
 
-void Controller::search_code_name_rate_table(std::string &code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result) {
+void Controller::search_code_name_rate_table(std::string &code_name, unsigned int rate_table_id, trie::rate_type_t rate_type, search::SearchResult &result, bool include_code) {
   mutex_unique_lock_t update_tables_lock(update_tables_mutex);
   update_tables_holder.wait(update_tables_lock, [&] { return updating_tables == false; });
   update_tables_lock.unlock();
@@ -389,7 +389,7 @@ void Controller::search_code_name_rate_table(std::string &code_name, unsigned in
   trie::p_trie_t trie = (*selected_tables.tables_tries)[index];
   for (auto it = code_set->begin(); it != code_set->end(); ++it) {
     unsigned long long code = *it;
-    trie->search_code(trie, code, rate_type, result, code_name, true);
+    trie->search_code(trie, code, rate_type, result, code_name, include_code);
   }
 }
 

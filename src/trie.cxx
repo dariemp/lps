@@ -358,16 +358,6 @@ void Trie::set_current_data(rate_type_t rate_type, double rate, time_t reference
         data->set_current_end_date(rate_type, end_date);
         data->set_code_name(code_item);
         data->set_egress_trunk_id(rate_type, egress_trunk_id);
-      if (end_date <= 0) {
-        data->set_future_rate(rate_type, rate);
-        data->set_future_effective_date(rate_type, reference_time);
-        data->set_future_end_date(rate_type, end_date);
-      }
-      else {
-        data->set_future_rate(rate_type, -1);
-        data->set_future_effective_date(rate_type, end_date + 1);
-        data->set_future_end_date(rate_type, -1);
-      }
   }
   if (effective_date > reference_time && (data->get_future_rate(rate_type) == -1 || effective_date < data->get_future_effective_date(rate_type))) {
     data->set_future_rate(rate_type, rate);

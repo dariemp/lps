@@ -18,7 +18,10 @@ namespace rest {
   };
 
   class RestSearchCodeNameAndRateTable : public http_resource <RestSearchCodeNameAndRateTable> {
+    private:
+      bool sumarize_rate_table;
   	public:
+      RestSearchCodeNameAndRateTable(bool sumarize_rate_table = true) : sumarize_rate_table(sumarize_rate_table) {};
       void render(const http_request& request, http_response** response);
   };
 
