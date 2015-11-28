@@ -365,7 +365,7 @@ void Controller::_search_code(const code_set_t &code_set, trie::rate_type_t rate
           trie::p_trie_t trie = (*selected_tables.tables_tries)[i];
           for (auto it = code_set.begin(); it != code_set.end(); ++it) {
             unsigned long long code = *it;
-            trie->search_code(trie, code, rate_type, result, filter_code_name);
+            trie->search_code(trie, code, rate_type, reference_time, result, filter_code_name);
           }
       }
     }
@@ -389,7 +389,7 @@ void Controller::search_code_name_rate_table(std::string &code_name, unsigned in
   trie::p_trie_t trie = (*selected_tables.tables_tries)[index];
   for (auto it = code_set->begin(); it != code_set->end(); ++it) {
     unsigned long long code = *it;
-    trie->search_code(trie, code, rate_type, result, code_name, include_code);
+    trie->search_code(trie, code, rate_type, reference_time, result, code_name, include_code);
   }
 }
 
@@ -429,7 +429,7 @@ void Controller::search_rate_table(unsigned int rate_table_id, trie::rate_type_t
           p_code_set_t code_set = all_codes_sets[j];
           for (auto it = code_set->begin(); it != code_set->end(); ++it) {
             unsigned long long code = *it;
-            trie->search_code(trie, code, rate_type, result);
+            trie->search_code(trie, code, rate_type, reference_time, result);
           }
         }
       }
@@ -473,7 +473,7 @@ void Controller::search_all_codes(trie::rate_type_t rate_type, search::SearchRes
               trie::p_trie_t trie = (*tables_tries)[j];
               for (auto it=all_codes.begin(); it != all_codes.end(); ++it) {
                 unsigned long long code = *it;
-                trie->search_code(trie, code, rate_type, result);
+                trie->search_code(trie, code, rate_type, reference_time, result);
               }
             }
           });

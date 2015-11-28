@@ -478,7 +478,7 @@ void Trie::insert_code(const p_trie_t trie,
 /**
     Longest prefix search implementation... sort of
 */
-void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, search::SearchResult &search_result, const std::string &filter_code_name, bool include_code) {
+void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t rate_type, time_t reference_time, search::SearchResult &search_result, const std::string &filter_code_name, bool include_code) {
   unsigned int rate_table_id = trie->get_data()->get_rate_table_id();
   p_trie_t current_trie = trie;
   unsigned long long code_found = 0, current_code = 0;
@@ -544,6 +544,7 @@ void Trie::search_code(const p_trie_t trie, unsigned long long code, rate_type_t
                          current_end_date,
                          future_effective_date,
                          future_end_date,
+                         reference_time,
                          egress_trunk_id);
   }
 }

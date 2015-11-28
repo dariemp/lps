@@ -110,11 +110,12 @@ void SearchResult::insert(unsigned long long code,
                           time_t end_date,
                           time_t future_effective_date,
                           time_t future_end_date,
+                          time_t reference_time,
                           unsigned int egress_trunk_id) {
   tbb::mutex::scoped_lock lock(search_insertion_mutex);
   if (future_effective_date != -1 && end_date == -1)
     end_date = future_effective_date - 1;
-  time_t future_date = effective_date + 3600 * 24 * days_ahead;
+  time_t future_date = reference_time + 3600 * 24 * days_ahead;
   if (end_date <= 0) {
     future_max_rate = current_max_rate;
     future_min_rate = current_min_rate;

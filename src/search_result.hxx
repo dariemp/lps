@@ -79,6 +79,7 @@ namespace search {
                   time_t end_date,
                   time_t future_effective_date,
                   time_t future_end_date,
+                  time_t reference_time,
                   unsigned int egress_trunk_id);
       size_t size() const;
       std::string to_json(bool sumarize_rate_table = true);
